@@ -47,14 +47,14 @@ program euler_cfd
       ! extrapolated primitives
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
-   integer(ik), parameter :: xcells = 128, &
-                             ycells = 128, &
-                             zcells = 128, &
+   integer(ik), parameter :: xcells = 32, &
+                             ycells = 32, &
+                             zcells = 32, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
-   real(rk), parameter :: ds = 1.0_rk
+   real(rk), parameter :: ds =2.0_rk
    real(rk), parameter :: tout = 0.01_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max = 0.05_rk
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max = 0.44_rk
    integer(ik) :: timestep = 0, nWrites=0
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
@@ -89,9 +89,9 @@ program euler_cfd
    shifty(2) = 1
    shiftz(3) = 1
    ! initialize vx, vy, vz to 0
-   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0_rk*1.2_rk, 1.2_rk)
-   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0001_rk*101325, 101325.0_rk)
-   call init_grid(vx, nx, ny, nz, nGhosts, 0.0_rk)
+   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.1_rk*1.2_rk, 1.2_rk)
+   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.000_rk*101325, 101325.0_rk)
+   call init_grid(vx, nx, ny, nz, nGhosts, 160.0_rk)
    call init_grid(vy, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(vz, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
@@ -154,9 +154,9 @@ program euler_cfd
                            drho_dy, dvy_dy, dvx_dy, dvz_dy, dp_dy, &
                            rho_xtr, vy_xtr, vx_xtr, vz_xtr, p_xtr, nx, ny, nz, nGhosts, ds, shifty)
 
-      call reconstructflux(mass_flux_z, momentum_z_flux_z, momentum_y_flux_z, momentum_x_flux_z, energy_flux_z, &
-                           drho_dz, dvz_dz, dvy_dz, dvx_dz, dp_dz, &
-                           rho_xtr, vz_xtr, vy_xtr, vx_xtr, p_xtr, nx, ny, nz, nGhosts, ds, shiftz)
+      call reconstructflux(mass_flux_z, momentum_z_flux_z, momentum_x_flux_z, momentum_y_flux_z, energy_flux_z, &
+                           drho_dz, dvz_dz, dvx_dz, dvy_dz, dp_dz, &
+                           rho_xtr, vz_xtr, vx_xtr, vy_xtr, p_xtr, nx, ny, nz, nGhosts, ds, shiftz)
 
       call update_flux_ghost(mass_flux_x, mass_flux_y, mass_flux_z, momentum_x_flux_x, momentum_y_flux_x, momentum_z_flux_x, &
                              momentum_x_flux_y, momentum_y_flux_y, momentum_z_flux_y, momentum_x_flux_z, momentum_y_flux_z, &

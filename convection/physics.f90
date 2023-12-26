@@ -34,9 +34,7 @@ contains
    real(rk) function compute_timestep(ds, vx, vy, vz, p, rho)
       real(rk), intent(in) :: ds
       real(rk), intent(in), dimension(:, :, :) :: vx, vy, vz, p, rho
-      compute_timestep = minval(cfl*ds/sqrt((gamma*p/rho) + (vx**2 + vy**2 + vz**2)))
-      ! todo: double check this
-      ! compute_timestep = minval(cfl*ds/(sqrt(gamma*p/rho) + sqrt(vx**2 + vy**2 + vz**2)) )
+      compute_timestep =cfl * minval( ds / (sqrt( gamma*p/rho ) + sqrt(vx**2+vy**2+vz**2)) )
    end function compute_timestep
 
    subroutine primitive(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
@@ -118,8 +116,8 @@ contains
 
                pr = p(i, j, k) + (dp(i, j, k))*(ds/2.)
 
-               en_left = (pl/(gamma - 1.0_rk)) + 0.5_rk*(rl*(vxl**2 + vyl**2 + vzl**2))
-               en_right = (pr/(gamma - 1.0_rk)) + 0.5_rk*(rr*(vxr**2 + vyr**2 + vzr**2))
+               en_left =0.5_rk*(rl*(vxl**2 + vyl**2 + vzl**2))+(pl/(gamma - 1.0_rk))  
+               en_right= 0.5_rk*(rr*(vxr**2 + vyr**2 + vzr**2))+(pr/(gamma - 1.0_rk))
 
                rho_star = (rl + rr)/2.0_rk
                momentum_x_star = (rl*vxl + rr*vxr)/2.0_rk
@@ -143,6 +141,12 @@ contains
                momentum_y_flux_x(i, j, k) = momentum_y_flux_x(i, j, k) - (c_star*(rl*vyl - rr*vyr))/2.0_rk
                momentum_z_flux_x(i, j, k) = momentum_z_flux_x(i, j, k) - (c_star*(rl*vzl - rr*vzr))/2.0_rk
                energy_flux_x(i, j, k) = energy_flux_x(i, j, k) - (c_star*(en_left - en_right))/2.0_rk
+
+               mass_flux_x(i, j, k) =ds*mass_flux_x(i, j, k) 
+               momentum_x_flux_x(i, j, k) =ds*momentum_x_flux_x(i, j, k) 
+               momentum_y_flux_x(i, j, k) =ds*momentum_y_flux_x(i, j, k) 
+               momentum_z_flux_x(i, j, k) =ds*momentum_z_flux_x(i, j, k) 
+               energy_flux_x(i, j, k) =ds*energy_flux_x(i, j, k) 
             end do
          end do
       end do
