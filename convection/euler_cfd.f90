@@ -47,25 +47,25 @@ program euler_cfd
       ! extrapolated primitives
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
-   integer(ik), parameter :: xcells = 32, &
-                             ycells = 32, &
-                             zcells = 32, &
+   integer(ik), parameter :: xcells = 64, &
+                             ycells = 64, &
+                             zcells = 64, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
-   real(rk), parameter :: ds =2.0_rk
+   real(rk), parameter :: ds =1.0_rk
    real(rk), parameter :: tout = 0.01_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max = 0.44_rk
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =0.6_rk
    integer(ik) :: timestep = 0, nWrites=0
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
 
    !Set  boundary conditions
-   BCs(1) = PERIODIC !x-
-   BCs(2) = PERIODIC !x+
-   BCs(3) = PERIODIC !y-
-   BCs(4) = PERIODIC !y-
-   BCs(5) = PERIODIC !z-
-   BCs(6) = PERIODIC !z+
+   BCs(1) = OUTFLOW !x-
+   BCs(2) = OUTFLOW !x+
+   BCs(3) = OUTFLOW !y-
+   BCs(4) = OUTFLOW !y-
+   BCs(5) = OUTFLOW !z-
+   BCs(6) = OUTFLOW !z+
 
    allocate (rho(nx, ny, nz), vx(nx, ny, nz), vy(nx, ny, nz), vz(nx, ny, nz), p(nx, ny, nz), mass(nx, ny, nz), &
              momentum_x(nx, ny, nz), momentum_y(nx, ny, nz), momentum_z(nx, ny, nz), energy(nx, ny, nz), &
@@ -90,10 +90,10 @@ program euler_cfd
    shiftz(3) = 1
    ! initialize vx, vy, vz to 0
    call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.1_rk*1.2_rk, 1.2_rk)
-   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.000_rk*101325, 101325.0_rk)
-   call init_grid(vx, nx, ny, nz, nGhosts, 160.0_rk)
+   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.000_rk*101325, 2.5_rk)
+   call init_grid(vx, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(vy, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(vz, nx, ny, nz, nGhosts, 0.0_rk)
+   call init_grid(vz, nx, ny, nz, nGhosts, 120.0_rk)
    call init_grid(mass_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
@@ -109,6 +109,7 @@ program euler_cfd
    call init_grid(energy_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(energy_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(energy_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
+   !call init_KHI(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    call conservative(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
@@ -123,6 +124,8 @@ program euler_cfd
       call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
 
       call primitive(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
+
+      call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
 
       dt = compute_timestep(ds, vx, vy, vz, p, rho)
 
