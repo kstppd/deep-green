@@ -413,6 +413,7 @@ contains
       call update_ghosts(energy_flux_z, nx, ny, nz, nGhosts, BCs)
    end subroutine update_flux_ghost
 
+   !Implements slip wall Boundaries
    subroutine apply_boundary_conditions(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
       use types_and_kinds
       implicit none
