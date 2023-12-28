@@ -25,27 +25,36 @@ units={
 def plotFile(input):
     var,file,cnt=input
     data=h5.File(file)[var][:]
+    nz,ny,nx=np.shape(data)
+    data=np.reshape(data,(nx,ny,nz),order='C')
     data=data[2:-2,2:-2,2:-2]
-    nx,ny,nz=np.shape(data)
-    print(nx,ny,nz)
-    fig, (ax1, ax2) = plt.subplots(1, 2)
+    nx-=4
+    ny-=4
+    nz-=4
+    print(np.shape(data))
+    fig, (ax1, ax2,ax3) = plt.subplots(1, 3)
     fig.suptitle(f"Y and Z slices of {var}")
-    im1=ax1.imshow(data[:,:,nz//2],cmap="gist_heat")
-    im2=ax2.imshow(data[:,ny//2,:],cmap="gist_heat")
-    # ax1.set_title(f"{var}, Z = 0 slice")
-    # ax2.set_title(f"{var}, Y = 0 slice")
-    ax1.set_xlabel("x")
-    ax1.set_ylabel("y")
+    im1=ax1.imshow(data[:,:,nz//2],cmap='plasma')#,vmin=1.1,vmax=1.23)
+    im2=ax2.imshow(data[:,ny//2,:],cmap='plasma')#,vmin=1.1,vmax=1.23)
+    im3=ax3.imshow(data[nx//2,:,:],cmap='plasma')#,vmin=1.1,vmax=1.23)
+    ax1.invert_yaxis()
+    ax2.invert_yaxis()
+    #ax1.set_title(f"{var}, Z = 0 slice")
+    #ax2.set_title(f"{var}, Y = 0 slice")
+    ax1.set_xlabel("y")
+    ax1.set_ylabel("z")
     ax2.set_xlabel("x")
     ax2.set_ylabel("z")
-    divider1 = make_axes_locatable(ax1)
-    divider2 = make_axes_locatable(ax2)
-    cax1 = divider1.append_axes('right', size='5%', pad=0.05)
-    cax2 = divider2.append_axes('right', size='5%', pad=0.05)
-    cb1=fig.colorbar(im1, cax=cax1)
-    cb2=fig.colorbar(im2, cax=cax2)
-    cb1.ax.set_title(f"${units[var]}$ ")
-    cb2.ax.set_title(f"${units[var]}$ ")
+    ax3.set_xlabel("z")
+    ax3.set_ylabel("y")
+    # divider1 = make_axes_locatable(ax1)
+    # divider2 = make_axes_locatable(ax2)
+    # cax1 = divider1.append_axes('right', size='5%', pad=0.05)
+    # cax2 = divider2.append_axes('right', size='5%', pad=0.05)
+    # cb1=fig.colorbar(im1, cax=cax1)
+    # cb2=fig.colorbar(im2, cax=cax2)
+    # cb1.ax.set_title(f"${units[var]}$ ")
+    # cb2.ax.set_title(f"${units[var]}$ ")
     plt.tight_layout()
     plt.savefig(var+"_"+str(cnt).zfill(7)+".png")
     plt.close()
@@ -54,7 +63,7 @@ def plotFile(input):
 if (len(sys.argv)<3):
     print(f"Usage: python3 {sys.argv[0]} <var> <file sequence>")
     sys.exit(1)
-re=6378137.0
+
 var=sys.argv[1]
 if ( not var in available):
     print(f"Invalid var {var} requested!")
