@@ -48,24 +48,24 @@ program euler_cfd
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
    integer(ik), parameter :: xcells = 64, &
-                             ycells = 64, &
+                             ycells = 4, &
                              zcells = 64, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
-   real(rk), parameter :: ds =1.0_rk
-   real(rk), parameter :: tout = 0.01_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =0.6_rk
-   integer(ik) :: timestep = 0, nWrites=0
+   real(rk), parameter :: ds =1.0/xcells
+   real(rk), parameter :: tout = 0.1_rk
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =1.5_rk
+   integer(ik) :: timestep = 0, nWrites=0,i,j,k
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
 
    !Set  boundary conditions
-   BCs(1) = OUTFLOW !x-
-   BCs(2) = OUTFLOW !x+
-   BCs(3) = OUTFLOW !y-
-   BCs(4) = OUTFLOW !y-
-   BCs(5) = OUTFLOW !z-
-   BCs(6) = OUTFLOW !z+
+   BCs(1) = PERIODIC !OUTFLOW !x-
+   BCs(2) = PERIODIC !x+
+   BCs(3) = PERIODIC !y-
+   BCs(4) = PERIODIC !y-
+   BCs(5) = PERIODIC !z-
+   BCs(6) = PERIODIC !z+
 
    allocate (rho(nx, ny, nz), vx(nx, ny, nz), vy(nx, ny, nz), vz(nx, ny, nz), p(nx, ny, nz), mass(nx, ny, nz), &
              momentum_x(nx, ny, nz), momentum_y(nx, ny, nz), momentum_z(nx, ny, nz), energy(nx, ny, nz), &
@@ -89,11 +89,11 @@ program euler_cfd
    shifty(2) = 1
    shiftz(3) = 1
    ! initialize vx, vy, vz to 0
-   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.1_rk*1.2_rk, 1.2_rk)
-   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.000_rk*101325, 2.5_rk)
+   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk, 0.5_rk*1.2_rk, 1.2_rk)
+   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0_rk*2.5, 2.5_rk)
    call init_grid(vx, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(vy, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(vz, nx, ny, nz, nGhosts, 120.0_rk)
+   call init_grid(vz, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(mass_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
@@ -109,7 +109,10 @@ program euler_cfd
    call init_grid(energy_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(energy_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(energy_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
-   !call init_KHI(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+
+
+   call init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    call conservative(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
@@ -143,11 +146,8 @@ program euler_cfd
                                  dvz_dx, dvz_dy, dvz_dz, dp_dx, dp_dy, dp_dz, &
                                  rho_xtr, vx_xtr, vy_xtr, vz_xtr, p_xtr, dt)
 
-      call update_ghosts(rho_xtr, nx, ny, nz, nGhosts, BCs)
-      call update_ghosts(vx_xtr, nx, ny, nz, nGhosts, BCs)
-      call update_ghosts(vy_xtr, nx, ny, nz, nGhosts, BCs)
-      call update_ghosts(vz_xtr, nx, ny, nz, nGhosts, BCs)
-      call update_ghosts(p_xtr, nx, ny, nz, nGhosts, BCs)
+      !Apply BCs if we have anything other than Periodic or Outflow!
+      call apply_boundary_conditions(rho_xtr, vx_xtr, vy_xtr, vz_xtr, p_xtr, nx, ny, nz, nGhosts, BCs)
 
       call reconstructflux(mass_flux_x, momentum_x_flux_x, momentum_y_flux_x, momentum_z_flux_x, &
                            energy_flux_x, drho_dx, dvx_dx, dvy_dx, dvz_dx, dp_dx, &
@@ -186,6 +186,7 @@ program euler_cfd
       time = time + dt
       write_time = write_time + dt
    end do
+   print*, "Run done go have fun now!"
 
    deallocate (rho, vx, vy, vz, p, mass, momentum_x, momentum_y, momentum_z, &
                energy, rho_prime, vx_prime, vy_prime, vz_prime, temp, &

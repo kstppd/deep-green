@@ -87,9 +87,9 @@ contains
       real(rk) :: rl, rr, vxl, vxr, vyl, vyr, vzl, vzr, pl, pr
       ! start by calculating rho_star, which is average of density
       !$omp parallel do collapse(3)
-      do k = nGhosts + 1, nz - nGhosts
-         do j = nGhosts + 1, ny - nGhosts
-            do i = nGhosts + 1, nx - nGhosts
+      do k = nGhosts + 0, nz - nGhosts
+         do j = nGhosts + 0, ny - nGhosts
+            do i = nGhosts + 0, nx - nGhosts
 
                rl = rho(i + offsets(1), j + offsets(2), k + offsets(3)) - &
                     (drho(i + offsets(1), j + offsets(2), k + offsets(3)))*(ds/2.)
@@ -132,6 +132,19 @@ contains
                momentum_z_flux_x(i, j, k) = momentum_x_star*momentum_z_star/rho_star; 
                energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)
 
+               !if(offsets(1)==1) then 
+                  !momentum_z_flux_x(i, j, k) = 1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
+                  !!energy_flux_z(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)+0.5*rho_star*(vzl+vzr)*g
+               !endif
+               !if(offsets(2)==1) then 
+                  !momentum_z_flux_x(i, j, k) = 1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
+                  !!energy_flux_z(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)+0.5*rho_star*(vzl+vzr)*g
+               !endif
+               !if(offsets(3)==1) then 
+                  !momentum_x_flux_x(i, j, k) = -1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
+                  !energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)-0.5*rho_star*(vxl+vxr)*g
+               !endif
+
                c_l = sqrt(gamma*pl/rl) + abs(vxl)
                c_r = sqrt(gamma*pr/rr) + abs(vxr)
                c_star = max(c_l, c_r)
@@ -171,9 +184,9 @@ contains
       integer(ik) :: i, j, k
 
       !$omp parallel do collapse(3)
-      do k = nGhosts + 1, nz - nGhosts
-         do j = nGhosts + 1, ny - nGhosts
-            do i = nGhosts + 1, nx - nGhosts
+      do k = nGhosts , nz - nGhosts
+         do j = nGhosts , ny - nGhosts
+            do i = nGhosts , nx - nGhosts
                mass(i, j, k) = mass(i, j, k) - (dt*ds)*(mass_flux_x(i, j, k) - mass_flux_x(i - 1, j, k) + &
                                                         mass_flux_y(i, j, k) - mass_flux_y(i, j - 1, k) + &
                                                         mass_flux_z(i, j, k) - mass_flux_z(i, j, k - 1))
@@ -237,9 +250,9 @@ contains
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
       integer(ik) :: i, j, k
       !$omp parallel do collapse(3)
-      do k = nGhosts + 1, nz - nGhosts
-         do j = nGhosts + 1, ny - nGhosts
-            do i = nGhosts + 1, nx - nGhosts
+      do k = nGhosts + 0, nz - nGhosts
+         do j = nGhosts + 0, ny - nGhosts
+            do i = nGhosts + 0, nx - nGhosts
                dgdy(i, j, k) = (grid(i, j + 1, k) - grid(i, j - 1, k))/(2.0_rk*ds)
                dgdx(i, j, k) = (grid(i + 1, j, k) - grid(i - 1, j, k))/(2.0_rk*ds)
                dgdz(i, j, k) = (grid(i, j, k + 1) - grid(i, j, k - 1))/(2.0_rk*ds)
@@ -339,6 +352,7 @@ contains
       call update_ghosts(vy, nx, ny, nz, nGhosts, BCs)
       call update_ghosts(vz, nx, ny, nz, nGhosts, BCs)
       call update_ghosts(p, nx, ny, nz, nGhosts, BCs)
+      call apply_boundary_conditions(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    end subroutine update_primitive_ghosts
 
    subroutine update_gradient_ghost(drho_dx, drho_dy, drho_dz, &
@@ -405,6 +419,96 @@ contains
       real(rk), dimension(:, :, :), intent(inout) :: rho, vx, vy, vz, p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
       integer(4), intent(in) :: BCs(6)
-   end subroutine apply_boundary_conditions
 
+
+      select case (BCs(1))
+         case (WALL)
+            rho(2,:,:)=rho(3,:,:)
+            vx(2,:,:)=-vx(3,:,:)
+            vy(2,:,:)=vy(3,:,:)
+            vz(2,:,:)=vz(3,:,:)
+            p(2,:,:)=p(3,:,:)
+
+            rho(1,:,:)=rho(4,:,:)
+            vx(1,:,:)=-vx(4,:,:)
+            vy(1,:,:)=vy(4,:,:)
+            vz(1,:,:)=vz(4,:,:)
+            p(1,:,:)=p(4,:,:)
+      end select
+
+      select case (BCs(2))
+         case (WALL)
+            rho(NX-1,:,:)=rho(NX-2,:,:)
+            vx(NX-1,:,:)=-vx(NX-2,:,:)
+            vy(NX-1,:,:)=vy(NX-2,:,:)
+            vz(NX-1,:,:)=vz(NX-2,:,:)
+            p(NX-1,:,:)=p(NX-2,:,:)
+
+            rho(NX,:,:)=rho(NX-3,:,:)
+            vx(NX,:,:)=-vx(NX-3,:,:)
+            vy(NX,:,:)=vy(NX-3,:,:)
+            vz(NX,:,:)=vz(NX-3,:,:)
+            p(NX,:,:)=p(NX-3,:,:)
+      end select
+
+      select case (BCs(3))
+         case (WALL)
+            rho(:,2,:)=rho(:,3,:)
+            vx(:,2,:)=vx(:,3,:)
+            vy(:,2,:)=-vy(:,3,:)
+            vz(:,2,:)=vz(:,3,:)
+            p(:,2,:)=p(:,3,:)
+
+            rho(:,1,:)=rho(:,4,:)
+            vx(:,1,:)=vx(:,4,:)
+            vy(:,1,:)=-vy(:,4,:)
+            vz(:,1,:)=vz(:,4,:)
+            p(:,1,:)=p(:,4,:)
+      end select
+
+      select case (BCs(4))
+         case (WALL)
+            rho(:,NY-1,:)=rho(:,NY-2,:)
+            vx(:,NY-1,:)=vx(:,NY-2,:)
+            vy(:,NY-1,:)=-vy(:,NY-2,:)
+            vz(:,NY-1,:)=vz(:,NY-2,:)
+            p(:,NY-1,:)=p(:,NY-2,:)
+
+            rho(:,NY,:)=rho(:,NY-3,:)
+            vx(:,NY,:)=vx(:,NY-3,:)
+            vy(:,NY,:)=-vy(:,NY-3,:)
+            vz(:,NY,:)=vz(:,NY-3,:)
+            p(:,NY,:)=p(:,NY-3,:)
+      end select
+
+      select case (BCs(5))
+         case (WALL)
+            rho(:,:,2)=rho(:,:,3)
+            vx(:,:,2)=vx(:,:,3)
+            vy(:,:,2)=vy(:,:,3)
+            vz(:,:,2)=-vz(:,:,3)
+            p(:,:,2)=p(:,:,3)
+
+            rho(:,:,1)=rho(:,:,4)
+            vx(:,:,1)=vx(:,:,4)
+            vy(:,:,1)=vy(:,:,4)
+            vz(:,:,1)=-vz(:,:,4)
+            p(:,:,1)=p(:,:,4)
+      end select
+
+      select case (BCs(6))
+         case (WALL)
+            rho(:,:,NZ-1)=rho(:,:,NZ-2)
+            vx(:,:,NZ-1)=vx(:,:,NZ-2)
+            vy(:,:,NZ-1)=vy(:,:,NZ-2)
+            vz(:,:,NZ-1)=-vz(:,:,NZ-2)
+            p(:,:,NZ-1)=p(:,:,NZ-2)
+
+            rho(:,:,NZ)=rho(:,:,NZ-3)
+            vx(:,:,NZ)=vx(:,:,NZ-3)
+            vy(:,:,NZ)=vy(:,:,NZ-3)
+            vz(:,:,NZ)=-vz(:,:,NZ-3)
+            p(:,:,NZ)=p(:,:,NZ-3)
+      end select
+   end subroutine apply_boundary_conditions
 end module physics

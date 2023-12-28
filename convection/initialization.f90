@@ -52,7 +52,7 @@ contains
      end if
    end function logic2dbl
 
-   subroutine init_KHI(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+   subroutine init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
       real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
       real(rk), intent(in) ::ds
@@ -71,28 +71,20 @@ contains
          end do
      end do
      vy=0
-   end subroutine init_KHI
-   subroutine init_RT(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+   end subroutine init_Kelvin_Helmholtz
+   subroutine init_Rayleigh_Taylor(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
       real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
       real(rk), intent(in) ::ds
       real(rk):: s,w,xs,zs,v
       integer(ik) :: i, k
-      w = 0.05_rk
-      s = 0.05 / sqrt(2.0_rk)
-      do i = 1+nGhosts, nx-nGhosts
-         do k = 1+nGhosts, nz-nGhosts
-            xs=i*ds
-            zs=k*ds
-            v=ds*nz/2.0_rk + w*cos( 2.0_rk*pi*xs/(nx*ds)  )
-            if (zs>v)then 
-               rho(i,:, k) =3.0
-            else
-               rho(i,:, k) =1.5
-            endif
-         end do
-     end do
-     p=3
-   end subroutine init_RT
+   end subroutine init_Rayleigh_Taylor
+   subroutine init_Thermal_Rising_Bubble(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+      real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
+      integer(ik), intent(in) :: nx, ny, nz, nGhosts
+      real(rk), intent(in) ::ds
+      real(rk):: s,w,xs,zs,v
+      integer(ik) :: i, k
+   end subroutine init_Thermal_Rising_Bubble
 end module initialization
 
