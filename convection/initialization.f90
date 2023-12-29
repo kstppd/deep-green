@@ -43,6 +43,19 @@ contains
          end do
       end do
    end subroutine init_grid_gaussian
+   subroutine init_grid_gaussian_on_top(grid, nx, ny, nz, nGhosts, init_value_mu, init_value_sigma, magnitude)
+      real(rk), dimension(:, :, :), intent(out) :: grid
+      integer(ik), intent(in) :: nx, ny, nz, nGhosts
+      real(rk), intent(in) :: init_value_mu, init_value_sigma, magnitude
+      integer(ik) :: i, j, k
+      do k = nGhosts + 1, nz - nGhosts
+         do j = nGhosts + 1, ny - nGhosts
+            do i = nGhosts + 1, nx - nGhosts
+               grid(i, j, k) = grid(i,j,k)+ magnitude*gaussian3d(i, j, k, init_value_mu, init_value_sigma) 
+            end do
+         end do
+      end do
+   end subroutine init_grid_gaussian_on_top
    elemental pure real(rk) function logic2dbl(a)
      logical, intent(in) :: a
      if (a) then

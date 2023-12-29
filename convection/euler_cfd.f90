@@ -47,14 +47,14 @@ program euler_cfd
       ! extrapolated primitives
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
-   integer(ik), parameter :: xcells = 64, &
-                             ycells = 4, &
-                             zcells = 64, &
+   integer(ik), parameter :: xcells = 256, &
+                             ycells = 2, &
+                             zcells = 256, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
    real(rk), parameter :: ds =1.0
    real(rk), parameter :: tout = 0.1_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =10.5_rk
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =10.5_rk,cx=128,cy=2,cz=64,mag
    integer(ik) :: timestep = 0, nWrites=0,i,j,k
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
@@ -89,8 +89,8 @@ program euler_cfd
    shifty(2) = 1
    shiftz(3) = 1
    ! initialize vx, vy, vz to 0
-   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk, 0.5_rk*1.2_rk, 1.2_rk)
-   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0_rk*2.5, 2.5_rk)
+   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk, 0.1_rk*1.2_rk, 1.2_rk)
+   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0_rk*2.5, 101000.0_rk)
    call init_grid(vx, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(vy, nx, ny, nz, nGhosts, 0.0_rk)
    call init_grid(vz, nx, ny, nz, nGhosts, 0.0_rk)
@@ -112,9 +112,29 @@ program euler_cfd
 
 
    !call init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
-   !call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
-   rho=1.2_rk
-   p=101000.0_rk
+   call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+   !call init_grid_gaussian_on_top(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk,1.2_rk )
+   !rho=2.4_rk
+   !rho(:,:,3*nz/4:Nz)=2.0_rk
+   !p=101000.0_rk
+
+    !Make a ball
+      do k = 1, nz
+         do j =1, ny
+            do i = 1, nx 
+              !mag=(i-cx)**2+(j-cy)**2+(k-cz)**2
+              mag=(i-cx)**2+(k-cz)**2
+              mag=sqrt(mag)
+              if (mag<=32) then 
+                 rho(i,:,k)=1.0_rk
+              endif
+              if (mag<=28) then 
+                 rho(i,:,k)=0.8_rk
+              endif
+            end do
+         end do
+      end do
+    
 
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
