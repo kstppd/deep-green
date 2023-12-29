@@ -83,7 +83,7 @@ contains
       real(rk), intent(in) :: ds
       integer(ik) :: i, j, k
       real(rk) :: rho_star, momentum_x_star, momentum_y_star, momentum_z_star, p_star, en_right, en_left, en_star
-      real(rk) :: c_l, c_r, c_star
+      real(rk) :: c_l, c_r, c_star,h
       real(rk) :: rl, rr, vxl, vxr, vyl, vyr, vzl, vzr, pl, pr
       ! start by calculating rho_star, which is average of density
       !$omp parallel do collapse(3)
@@ -144,6 +144,13 @@ contains
                   !momentum_x_flux_x(i, j, k) = -1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
                   !energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)-0.5*rho_star*(vxl+vxr)*g
                !endif
+              if(offsets(3)==1) then 
+                  !momentum_x_flux_x(i, j, k) = -1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
+                  !energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)-0.5*rho_star*(vxl+vxr)*g
+                  h=(nz-2.0*nGhosts)*ds-(k-2.0)*ds
+                  momentum_x_flux_x(i, j, k) = momentum_x_flux_x(i, j, k) + 1.0*rho_star*g*h 
+                  energy_flux_x(i, j, k) = energy_flux_x(i, j, k) + 0.5*rho_star*(vxl+vxr)*g*h
+                endif
 
                c_l = sqrt(gamma*pl/rl) + abs(vxl)
                c_r = sqrt(gamma*pr/rr) + abs(vxr)
