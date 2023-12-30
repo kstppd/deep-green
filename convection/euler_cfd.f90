@@ -4,7 +4,7 @@
 ! Solving the compressible Euler equations in 3 dimensions using the Lax–Friedrichs
 ! flux method. Stable for CFL<0.4.
 ! TODO:
-! --Add a flux limiter using a high order reconstruction : 
+! --Add a flux limiter using a high order reconstruction :
 ! probably use Lax–Wendroff for F_{h}
 ! --Supported Boundaries: Periodic, Slip Wall, Outflow
 !
@@ -52,11 +52,11 @@ program euler_cfd
                              zcells = 256, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
-   real(rk), parameter :: ds =1.0
+   real(rk), parameter :: ds = 1.0
    real(rk), parameter :: tout = 0.1_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =10.5_rk
-   real(rk):: mag,cx=xcells/2,cy=ycells/2,cz=zcells/4! for thermal bubble
-   integer(ik) :: timestep = 0, nWrites=0,i,j,k
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk, time_max = 10.5_rk
+   real(rk):: mag, cx = xcells/2, cy = ycells/2, cz = zcells/4! for thermal bubble
+   integer(ik) :: timestep = 0, nWrites = 0, i, j, k
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
 
@@ -91,16 +91,15 @@ program euler_cfd
    shiftz(3) = 1
 
    !Set an initial state
-   call init_Uniform(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,101000.0_rk,293.0_rk)
+   !call init_Uniform(rho, vx, vy, vz, p,101000.0_rk, 293.0_rk)
    !call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,101000.0_rk,293.0_rk)
    !call init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
-   call init_Thermal_Rising_Bubble (rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,cx,cy,cz,32._rk,28._rk,101000.0_rk,293.0_rk)
+   call init_Thermal_Rising_Bubble(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds, cx, cy, cz, 32._rk, 28._rk, 101000.0_rk, 293.0_rk)
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    call conservative(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
    call write_state(time, nWrites, rho, vx, vy, vz, p, mass, momentum_x, momentum_y, momentum_z, energy, temp)
-   nWrites=1;
-
+   nWrites = 1; 
    !main
    do while (time <= time_max)
 
@@ -156,19 +155,19 @@ program euler_cfd
                      nx, ny, nz, nGhosts, dt, ds)
 
       timestep = timestep + 1
-      if (write_time>tout) then 
-         print*, "Performing IO..."
+      if (write_time > tout) then
+         print *, "Performing IO..."
          call write_state(time, nWrites, rho, vx, vy, vz, p, mass, momentum_x, momentum_y, momentum_z, energy, temp)
-         print*, "IO done!"
-         nWrites=nWrites+1
-         write_time=0.0_rk
-      endif
+         print *, "IO done!"
+         nWrites = nWrites + 1
+         write_time = 0.0_rk
+      end if
 
-      print *, "Time=", time, "s | Timestep=",timestep, "| dt=", dt,"s"
+      print *, "Time=", time, "s | Timestep=", timestep, "| dt=", dt, "s"
       time = time + dt
       write_time = write_time + dt
    end do
-   print*, "Run done go have fun now!"
+   print *, "Run done go have fun now!"
 
    deallocate (rho, vx, vy, vz, p, mass, momentum_x, momentum_y, momentum_z, &
                energy, rho_prime, vx_prime, vy_prime, vz_prime, temp, &
