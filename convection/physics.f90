@@ -132,18 +132,6 @@ contains
                momentum_z_flux_x(i, j, k) = momentum_x_star*momentum_z_star/rho_star; 
                energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)
 
-               !if(offsets(1)==1) then 
-                  !momentum_z_flux_x(i, j, k) = 1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
-                  !!energy_flux_z(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)+0.5*rho_star*(vzl+vzr)*g
-               !endif
-               !if(offsets(2)==1) then 
-                  !momentum_z_flux_x(i, j, k) = 1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
-                  !!energy_flux_z(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)+0.5*rho_star*(vzl+vzr)*g
-               !endif
-               !if(offsets(3)==1) then 
-                  !momentum_x_flux_x(i, j, k) = -1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
-                  !energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)-0.5*rho_star*(vxl+vxr)*g
-               !endif
               if(offsets(3)==1) then 
                   !momentum_x_flux_x(i, j, k) = -1.0*rho_star*g + momentum_x_star*momentum_x_star/rho_star + p_star; 
                   !energy_flux_x(i, j, k) = (en_star + p_star)*(momentum_x_star/rho_star)-0.5*rho_star*(vxl+vxr)*g
