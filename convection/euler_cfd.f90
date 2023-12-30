@@ -47,21 +47,22 @@ program euler_cfd
       ! extrapolated primitives
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
-   integer(ik), parameter :: xcells = 256, &
+   integer(ik), parameter :: xcells = 128, &
                              ycells = 2, &
                              zcells = 256, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
    real(rk), parameter :: ds =1.0
    real(rk), parameter :: tout = 0.1_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =10.5_rk,cx=128,cy=2,cz=64,mag
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk ,time_max =10.5_rk
+   real(rk):: mag,cx=xcells/2,cy=ycells/2,cz=zcells/4! for thermal bubble
    integer(ik) :: timestep = 0, nWrites=0,i,j,k
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
 
    !Set  boundary conditions
-   BCs(1) = PERIODIC !OUTFLOW !x-
-   BCs(2) = PERIODIC !x+
+   BCs(1) = WALL !OUTFLOW !x-
+   BCs(2) = WALL !x+
    BCs(3) = PERIODIC !y-
    BCs(4) = PERIODIC !y-
    BCs(5) = WALL !z-
@@ -88,54 +89,12 @@ program euler_cfd
    shiftx(1) = 1
    shifty(2) = 1
    shiftz(3) = 1
-   ! initialize vx, vy, vz to 0
-   call init_grid_gaussian(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk, 0.1_rk*1.2_rk, 1.2_rk)
-   call init_grid_gaussian(p, nx, ny, nz, nGhosts, nx/2.0_rk, 8.0_rk, 0.0_rk*2.5, 101000.0_rk)
-   call init_grid(vx, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(vy, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(vz, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(mass_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(mass_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(mass_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_x_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_x_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_x_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_y_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_y_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_y_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_z_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_z_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(momentum_z_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(energy_flux_x, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(energy_flux_y, nx, ny, nz, nGhosts, 0.0_rk)
-   call init_grid(energy_flux_z, nx, ny, nz, nGhosts, 0.0_rk)
 
-
+   !Set an initial state
+   call init_Uniform(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,101000.0_rk,293.0_rk)
+   !call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,101000.0_rk,293.0_rk)
    !call init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
-   call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
-   !call init_grid_gaussian_on_top(rho, nx, ny, nz, nGhosts, nx/2.0_rk, 4.0_rk,1.2_rk )
-   !rho=2.4_rk
-   !rho(:,:,3*nz/4:Nz)=2.0_rk
-   !p=101000.0_rk
-
-    !Make a ball
-      do k = 1, nz
-         do j =1, ny
-            do i = 1, nx 
-              !mag=(i-cx)**2+(j-cy)**2+(k-cz)**2
-              mag=(i-cx)**2+(k-cz)**2
-              mag=sqrt(mag)
-              if (mag<=32) then 
-                 rho(i,:,k)=1.0_rk
-              endif
-              if (mag<=28) then 
-                 rho(i,:,k)=0.8_rk
-              endif
-            end do
-         end do
-      end do
-    
-
+   call init_Thermal_Rising_Bubble (rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,cx,cy,cz,32._rk,28._rk,101000.0_rk,293.0_rk)
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    call conservative(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)

@@ -71,6 +71,9 @@ contains
       real(rk), intent(in) ::ds
       real(rk):: s,w,xs,zs
       integer(ik) :: i, k
+      if (abs(g)>1.0) then
+         print*, "Gravity in KHI you stupid!!!"
+      endif
       w = 0.1_rk
       s = 0.05 / sqrt(2.0_rk)
       do i = 1+nGhosts, nx-nGhosts
@@ -92,49 +95,69 @@ contains
       real(rk):: s,w,xs,zs,v
       integer(ik) :: i, k
    end subroutine init_Rayleigh_Taylor
-   subroutine init_Thermal_Rising_Bubble(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+   subroutine init_Thermal_Rising_Bubble(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,cx,cy,cz,rad_outter,rad_inner,p0,t0)
       real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
-      real(rk), intent(in) ::ds
-      real(rk):: s,w,xs,zs,v
-      integer(ik) :: i, k
+      real(rk), intent(in) ::ds,cx,cy,cz,p0,t0
+      real(rk),intent(in)::rad_outter,rad_inner
+      real(rk)::mag
+      integer(ik) :: i,j,k
+      call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,p0,t0)
+      !Make a ball
+      do k = 1, nz
+         do j =1, ny
+            do i = 1, nx 
+              mag=(i-cx)**2+(k-cz)**2
+              mag=sqrt(mag)
+              if (mag<=rad_outter) then 
+                 rho(i,:,k)=1.0_rk
+              endif
+              if (mag<=rad_inner) then 
+                 rho(i,:,k)=0.8_rk
+              endif
+            end do
+         end do
+      end do
+      vx=0
+      vy=0
+      vz=0
    end subroutine init_Thermal_Rising_Bubble
-   subroutine init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
+   subroutine init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,p0,t0)
       real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
-      real(rk), intent(in) ::ds
-      real(rk):: s,w,xs,zs,v,mag,rho_0,rho_1,t0,p0
+      real(rk), intent(in) ::ds,p0,t0
+      real(rk):: s,w,xs,zs,v,mag
       integer(ik) :: i,j,k
       if (abs(g)<1.0) then
          print*, "No gravity you stupid!!!"
       endif
-
-      rho_1=1.5_rk
-      rho_0=1.2_rk
-      !rho=rho_
-      p0=101000.0
-      p=p0
-      t0=20.0+273.15
       do k = 1, nz
          do j =1, ny
             do i = 1, nx 
                !How deep are we?
                zs=((nz-2.0*nGhosts)*ds+(0.0*ds)-(k-2.0)*ds)
-               !zs=((k-2)*ds)
-               !rho(i,j,k)=rho_0
                p(i,j,k)=p0+abs(g)*zs
                rho(i,j,k) = p(i,j,k)/(rs*t0) 
             end do
          end do
       end do
-
-      print*, "Pressure Profile with Ghosts"
       p(:,:,2)=p(:,:,3)+abs(g)*ds
       p(:,:,1)=p(:,:,3)+2_rk*abs(g)*ds
-      do k = 1, nz
-               zs=((nz-2.0*nGhosts)*ds+(0.5*ds)-(k-2.0)*ds)
-         print*,"Index = ",k,"Depth =", zs,"P=" ,p(nx/2,ny/2,k)
-      enddo
+      vx=0
+      vy=0
+      vz=0
    end subroutine init_Equilibrium
+   subroutine init_Uniform(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,p0,t0)
+      real(rk), dimension(:, :, :), intent(inout) :: rho,vx,vy,vz,p
+      integer(ik), intent(in) :: nx, ny, nz, nGhosts
+      real(rk), intent(in) ::ds,p0,t0
+      real(rk):: s,w,xs,zs,v,mag
+      integer(ik) :: i,j,k
+      p=p0
+      rho= p/(rs*t0) 
+      vx=0
+      vy=0
+      vz=0
+   end subroutine init_Uniform
 end module initialization
 
