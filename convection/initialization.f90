@@ -89,13 +89,29 @@ contains
       end do
       vy = 0
    end subroutine init_Kelvin_Helmholtz
-   !subroutine init_Rayleigh_Taylor(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds)
-      !real(rk), dimension(:, :, :), intent(inout) :: rho, vx, vy, vz, p
-      !integer(ik), intent(in) :: nx, ny, nz, nGhosts
-      !real(rk), intent(in) ::ds
-      !real(rk):: s, w, xs, zs, v
-      !integer(ik) :: i, k
-   !end subroutine init_Rayleigh_Taylor
+   subroutine init_Rayleigh_Taylor(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds, p0, t0)
+      real(rk), dimension(:, :, :), intent(inout) :: rho, vx, vy, vz, p
+      integer(ik), intent(in) :: nx, ny, nz, nGhosts
+      real(rk), intent(in) ::ds,t0,p0
+      real(rk)::  w, xs, zs, v
+      integer(ik) :: i, k
+
+      call init_Uniform(rho, vx, vy, vz, p, p0, t0)
+      vx = 0
+      vy = 0
+      vz = 0
+      w = 2.5_rk
+      do i = 1+nGhosts, nx-nGhosts
+         do k = 1+nGhosts, nz-nGhosts
+            xs=i*ds
+            zs=k*ds
+            v= ds*nz - ds*(nz/8.0) + w*sin( 2.0*1.5*2.0_rk*pi*xs/(nx*ds)  )
+            if (zs>v)then 
+               rho(i,:, k) =1.5_rk*rho(i,:, k)
+            endif
+         end do
+     end do
+   end subroutine init_Rayleigh_Taylor
    subroutine init_Thermal_Rising_Bubble(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds,cx, cy, cz, rad_outter, rad_inner, p0, t0)
       real(rk), dimension(:, :, :), intent(inout) :: rho, vx, vy, vz, p
       integer(ik), intent(in) :: nx, ny, nz, nGhosts

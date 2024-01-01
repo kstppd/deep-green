@@ -47,22 +47,22 @@ program euler_cfd
       ! extrapolated primitives
       vx_xtr, vy_xtr, vz_xtr, p_xtr
 
-   integer(ik), parameter :: xcells = 128, &
+   integer(ik), parameter :: xcells =128, &
                              ycells = 2, &
-                             zcells = 256, &
+                             zcells = 1024, &
                              nGhosts = 2
    integer(ik), parameter :: nx = xcells + 2*nGhosts, ny = ycells + 2*nGhosts, nz = zcells + 2*nGhosts
-   real(rk), parameter :: ds = 1.0
+   real(rk), parameter :: ds = 0.1
    real(rk), parameter :: tout = 0.1_rk
-   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk, time_max = 10.5_rk
+   real(rk):: dt = 0.0_rk, time = 0.0_rk, write_time = 0.0_rk, time_max = 20.5_rk
    real(rk):: mag, cx = xcells/2, cy = ycells/2, cz = zcells/4! for thermal bubble
    integer(ik) :: timestep = 0, nWrites = 0, i, j, k
    integer(ik) :: shiftx(3), shifty(3), shiftz(3)
    integer(4):: BCs(6)
 
    !Set  boundary conditions
-   BCs(1) = WALL !OUTFLOW !x-
-   BCs(2) = WALL !x+
+   BCs(1) = PERIODIC !OUTFLOW !x-
+   BCs(2) = PERIODIC !x+
    BCs(3) = PERIODIC !y-
    BCs(4) = PERIODIC !y-
    BCs(5) = WALL !z-
@@ -95,6 +95,7 @@ program euler_cfd
    !call init_Equilibrium(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds,101000.0_rk,293.0_rk)
    !call init_Kelvin_Helmholtz(rho,vx,vy,vz,p, nx, ny, nz, nGhosts,ds)
    call init_Thermal_Rising_Bubble(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds, cx, cy, cz, 32._rk, 28._rk, 101000.0_rk, 293.0_rk)
+   !call init_Rayleigh_Taylor(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, ds, 101000.0_rk, 293.0_rk)
 
    call update_primitive_ghosts(rho, vx, vy, vz, p, nx, ny, nz, nGhosts, BCs)
    call conservative(mass, momentum_x, momentum_y, momentum_z, energy, rho, p, vx, vy, vz, temp, ds)
