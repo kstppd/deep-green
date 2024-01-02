@@ -86,7 +86,9 @@ contains
       real(rk) :: c_l, c_r, c_star, h
       real(rk) :: rl, rr, vxl, vxr, vyl, vyr, vzl, vzr, pl, pr
       ! start by calculating rho_star, which is average of density
-      !$omp parallel do collapse(3)
+      !$omp parallel private(i,j,k,rl,rr,vxl,vxr,vyl,vyr,vzl,vzr,pl,pr,en_left,en_right,rho_star,&
+      !$omp+  momentum_x_star,momentum_y_star,momentum_z_star,en_star,p_star,h,c_r,c_l,c_star)
+      !$omp do collapse(3)
       do k = nGhosts + 0, nz - nGhosts
          do j = nGhosts + 0, ny - nGhosts
             do i = nGhosts + 0, nx - nGhosts
@@ -158,7 +160,8 @@ contains
             end do
          end do
       end do
-      !$omp end parallel do
+      !$omp end do
+      !$omp end parallel 
    end subroutine reconstructflux
 
    subroutine addfluxes(mass_flux_x, mass_flux_y, mass_flux_z, &
@@ -178,7 +181,9 @@ contains
       real(rk), intent(in) :: dt, ds
       integer(ik) :: i, j, k
 
-      !$omp parallel do collapse(3)
+
+      !$omp parallel private(i,j,k)
+      !$omp do collapse(3)
       do k = nGhosts, nz - nGhosts
          do j = nGhosts, ny - nGhosts
             do i = nGhosts, nx - nGhosts
@@ -200,7 +205,8 @@ contains
             end do
          end do
       end do
-      !$omp end parallel do
+      !$omp end do
+      !$omp end parallel 
    end subroutine addfluxes
    function maxmod(a, b)
       use types_and_kinds
@@ -244,7 +250,8 @@ contains
       real(rk), intent(in) :: ds
       integer(ik), intent(in) :: nx, ny, nz, nGhosts
       integer(ik) :: i, j, k
-      !$omp parallel do collapse(3)
+      !$omp parallel private(i,j,k)
+      !$omp do collapse(3)
       do k = nGhosts + 0, nz - nGhosts
          do j = nGhosts + 0, ny - nGhosts
             do i = nGhosts + 0, nx - nGhosts
@@ -254,7 +261,8 @@ contains
             end do
          end do
       end do
-      !$omp end parallel do
+      !$omp end do
+      !$omp end parallel
    end subroutine calculate_gradients
 
    subroutine update_ghosts(grid, nx, ny, nz, nGhosts, BCs)
