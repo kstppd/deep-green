@@ -91,6 +91,12 @@ fn main() -> ExitCode {
     } else if demo == "RELAXATION" {
         let (simulation, mut grid) = set_up_3d_relaxation_demo();
         compute(simulation, &mut grid, total_time, max_steps, tout);
+    } else if demo == "SHOCK_TUBE" {
+        let (simulation, mut grid) = set_up_shock_tube_demo();
+        compute(simulation, &mut grid, total_time, max_steps, tout);
+    } else if demo == "RAYLEIGH_TAYLOR" {
+        let (simulation, mut grid) = set_up_rt_demo();
+        compute(simulation, &mut grid, total_time, max_steps, tout);
     } else {
         eprintln!("Demo not found! Available demos are:");
         let available_demos: Vec<RunType> = RunType::iter().collect();
