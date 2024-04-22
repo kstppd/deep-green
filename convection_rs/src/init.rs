@@ -49,11 +49,11 @@ pub mod init {
             BoundaryType::WALL,     //z-
             BoundaryType::WALL,     //z+
         ];
-        let nx = 128;
+        let nx = 100;
         let ny = 2;
-        let nz = 512;
+        let nz = 300;
         let nghosts = 2;
-        let ds = 1.0 / nx as f32;
+        let ds = 2.0 * 0.0025;
 
         let simulation: Simulation = Simulation::new(
             nx,
@@ -365,36 +365,38 @@ pub mod init {
     }
 
     pub fn init_rt(grid: &mut SimulationGrid) {
+        // As seen in https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
         let nx = grid.info.nx;
         let ny = grid.info.ny;
         let nz = grid.info.nz;
         let ds = grid.info.ds;
         let ghosts = grid.info.nghosts;
 
-        let logic2dbl = |condition: bool| -> f32 {
-            if condition {
-                1.0
-            } else {
-                0.0
-            }
-        };
-
         grid.primitives.vx.map_inplace(|x| *x = 0.0);
         grid.primitives.vy.map_inplace(|x| *x = 0.0);
         grid.primitives.vz.map_inplace(|x| *x = 0.0);
-        grid.primitives.rho.map_inplace(|x| *x = 1.0);
-        grid.primitives.p.map_inplace(|x| *x = 2.5);
 
-        let p0 = 101000.0;
-        let t0 = 293.0;
+        let xmin = -0.25;
+        let zmin = -0.75;
+        let p0 = 2.5;
+        let _pi = std::f32::consts::PI;
         //First we build an artificial equilibrium.
         for i in 0..nx {
             for j in 0..ny {
                 for k in 0..nz {
-                    let zs: f32 = (nz as f32 - 2.0 * ghosts as f32) * ds as f32 + (0.0 * ds)
-                        - (k as f32 - 2.0) * ds;
-                    grid.primitives.p[[i, j, k]] = p0 + G.abs() * zs;
-                    grid.primitives.rho[[i, j, k]] = grid.primitives.p[[i, j, k]] / (RS * t0);
+                    let xs = xmin + ds * i as f32;
+                    let ys = 0.0;
+                    let zs = zmin + ds * k as f32;
+                    if zs > 0.0 {
+                        grid.primitives.rho[[i, j, k]] = 2.0;
+                    } else {
+                        grid.primitives.rho[[i, j, k]] = 1.0;
+                    }
+                    grid.primitives.p[[i, j, k]] = p0 - 0.1 * grid.primitives.rho[[i, j, k]] * 1.4;
+                    let vel =
+                        -0.01 * (1.0 + f32::cos(4.0 * _pi * xs)) * (1.0 + f32::cos(3.0 * _pi * zs))
+                            / 4.0;
+                    grid.primitives.vz[[i, j, k]] = vel;
                 }
             }
         }
@@ -406,22 +408,19 @@ pub mod init {
         grid.primitives.p.slice_mut(s![.., .., 1]).assign(&ss);
         grid.primitives.p.slice_mut(s![.., .., 0]).assign(&ss2);
 
-        //Next we set up RT
-        let w = nx as f32 * ds;
-        let h = nz as f32 * ds;
-        for i in 0..nx {
-            for j in 0..ny {
-                for k in 0..nz {
-                    let xs = i as f32 * ds;
-                    let ys = 0.0 as f32 * ds;
-                    let zs = k as f32 * ds;
-                    let perturb = 0.05 * w * f32::cos(2.0 * std::f32::consts::PI * (xs / w));
-                    if zs < (0.75 * h) + perturb {
-                        grid.primitives.rho[[i, j, k]] /= 2.0;
-                    }
-                }
-            }
-        }
+        // //Next we set up RT
+        // for i in 0..nx {
+        //     for j in 0..ny {
+        //         for k in 0..nz {
+        //             let perturb = 0.00 * w * f32::cos(2.0 * std::f32::consts::PI * (xs / w));
+        //             if zs < (0.75 * h) + perturb {
+        //                 grid.primitives.rho[[i, j, k]] = rho_low;
+        //             } else {
+        //                 grid.primitives.rho[[i, j, k]] = rho_high;
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     pub fn init_explosion(grid: &mut SimulationGrid) {
