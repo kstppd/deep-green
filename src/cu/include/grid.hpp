@@ -111,25 +111,25 @@ public:
     dset = file.createDataSet<T>("primitives/p", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
 
-    // mass.export_to_host(buffer.data());
-    // dset = file.createDataSet<T>("conserved/mass", DataSpace(get_dims()));
-    // dset.write_raw(buffer.data());
+    mass.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("conserved/mass", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
 
-    // momx.export_to_host(buffer.data());
-    // dset = file.createDataSet<T>("conserved/momx", DataSpace(get_dims()));
-    // dset.write_raw(buffer.data());
+    momx.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("conserved/momx", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
 
-    // momy.export_to_host(buffer.data());
-    // dset = file.createDataSet<T>("conserved/momy", DataSpace(get_dims()));
-    // dset.write_raw(buffer.data());
+    momy.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("conserved/momy", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
 
-    // momz.export_to_host(buffer.data());
-    // dset = file.createDataSet<T>("conserved/momz", DataSpace(get_dims()));
-    // dset.write_raw(buffer.data());
+    momz.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("conserved/momz", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
 
-    // e.export_to_host(buffer.data());
-    // dset = file.createDataSet<T>("conserved/e", DataSpace(get_dims()));
-    // dset.write_raw(buffer.data());
+    e.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("conserved/e", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
 
     // drho_x.export_to_host(buffer.data());
     // dset = file.createDataSet<T>("gradients/rhox", DataSpace(get_dims()));
