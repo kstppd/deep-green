@@ -4,8 +4,22 @@ project(
     version: '3.0',
     default_options: ['warning_level=3', 'cpp_std=c++20'],
 )
-add_global_arguments(
+
+CUSTOM_INSTALL_PATH='./external/'
+runner = run_command('git', 'clone', 'https://github.com/highfive-devs/highfive.git', 'external/highfive', check: false)
+spdlog_dep = dependency('spdlog')
+cuda_dep = dependency('cuda', version: '>=11', modules: ['nvToolsExt'])
+hdf5_dep = dependency('hdf5', language: 'cpp')
+includes=[CUSTOM_INSTALL_PATH+'./highfive/include/']
+deps = [cuda_dep, hdf5_dep,spdlog_dep]
+
+add_project_arguments(
     [
+        '--expt-relaxed-constexpr',
+        '-std=c++20',
+        '--expt-extended-lambda',
+        '-Xcompiler',
+        '-fopenmp',
         '-Xcompiler',
         '-Wno-pedantic',
         '--std=c++20',
@@ -15,36 +29,6 @@ add_global_arguments(
     language: 'cuda',
 )
 
-CUSTOM_INSTALL_PATH = '/home/kstppd/software/'
-
-spdlog_include = include_directories(
-    CUSTOM_INSTALL_PATH + '/spdlog/include/',
-    is_system: true,
-)
-h5_include = include_directories(
-    CUSTOM_INSTALL_PATH + '/HighFive/include',
-    is_system: true,
-)
-libspdlog = meson.get_compiler('cuda').find_library(
-    'spdlog',
-    dirs: [CUSTOM_INSTALL_PATH + 'spdlog/build/'],
-)
-cuda_dep = dependency('cuda', version: '>=11', modules: ['nvToolsExt'])
-hdf5_dep = dependency('hdf5', language: 'cpp')
-
-
-includes = [spdlog_include, h5_include]
-deps = [cuda_dep, hdf5_dep]
-add_project_arguments(
-    [
-        '--expt-relaxed-constexpr',
-        '-std=c++20',
-        '--expt-extended-lambda',
-        '-Xcompiler',
-        '-fopenmp',
-    ],
-    language: 'cuda',
-)
 executable(
     'eulernv',
     sources: ['eulernv.cu'],
@@ -53,6 +37,3 @@ executable(
     dependencies: deps,
     install: true,
 )
-
-
-
