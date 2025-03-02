@@ -381,7 +381,7 @@ std::array<T, 3> compute_step(
   PROFILE_START("BCs Primitives");
   spdlog::stopwatch sw1;
   apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
-  cudaDeviceSynchronize();
+  apply_boundaries<T>(simgrid.get_conserved_pointers(), simgrid.size(), lp);
   spdlog::debug("KERNEL::apply_boundaries [{0:d} x {1:d}] in {2:f} s.", lp[0],
                 lp[1], sw1);
   PROFILE_END();
@@ -514,6 +514,7 @@ void compute(Grid<T, G, BACKEND::DEVICE> &&simgrid, T total_time,
   init_function(simgrid);
 
   constexpr auto lp = launch_params(G.size());
+  apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
   spdlog::debug("Launching calc_conserved kernel [{0:d} x {1:d}] ", lp[0],
                 lp[1]);
   kernel_calc_conserved<T, G.dv()>
