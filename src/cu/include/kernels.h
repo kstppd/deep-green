@@ -324,7 +324,7 @@ __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
     }
   }
 
-  if constexpr (B == EULERCFD::BC::WALL || B==EULERCFD::BC::CONDUCTING_WALL) {
+  if constexpr (B == EULERCFD::BC::WALL ) {
     std::size_t jump_index;
     if constexpr (D == 0) {
       if ((i >= NG)) {
@@ -558,107 +558,7 @@ kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
       (en_star + p_star) * (momentum_x_star / rho_star);
 
   // Sources
-  if constexpr (EULERCFD::CONSTS::bcs[0] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (i == 1) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
   
-  if  constexpr(EULERCFD::CONSTS::bcs[1] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (j == 1) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
-  
-  if constexpr (EULERCFD::CONSTS::bcs[2] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (k == 1) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
- 
-  if constexpr (EULERCFD::CONSTS::bcs[3] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (i == EULERCFD::CONSTS::NX-2) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
-  
-  if  constexpr(EULERCFD::CONSTS::bcs[4] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (j == EULERCFD::CONSTS::NY-2) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
-  
-  if constexpr (EULERCFD::CONSTS::bcs[5] == EULERCFD::BC::CONDUCTING_WALL) {
-    if (k == EULERCFD::CONSTS::NZ-2) {
-      const T t_in =
-          p[id(i, j, k)] / (EULERCFD::CONSTS::RS * rho[id(i, j, k)]);
-      const T hc_out = 10.0f - EULERCFD::CONSTS::VOUT_MS +
-                       10.0f * std::sqrt(EULERCFD::CONSTS::VOUT_MS);
-      constexpr T S = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA;
-      constexpr T V = EULERCFD::CONSTS::DELTA * EULERCFD::CONSTS::DELTA *
-                      EULERCFD::CONSTS::DELTA;
-      constexpr T d = 0.008f;
-      constexpr T kappa = 0.2f;
-      const T Q = (EULERCFD::CONSTS::T_OUT_KELVIN - t_in) *
-                  (S / ((d / kappa) + (1.0f / hc_out)));
-      energy_flux_x[id(i, j, k)] += Q / V;
-    }
-  }
 
   // Gravity term if enabled
   if (offsets[2] == 1 && EULERCFD::CONSTS::GRAVITY) {
@@ -690,7 +590,7 @@ kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
 
 template <typename T, T DS, std::size_t N, std::size_t N2>
 __global__ void kernel_calc_addfluxes(std::array<T *, N2> fluxes,
-                                      std::array<T *, N> conserved,
+                                      std::array<T *, N> conserved, const T *const Q,
                                       std::size_t len, T dt) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -758,8 +658,9 @@ __global__ void kernel_calc_addfluxes(std::array<T *, N2> fluxes,
        momentum_z_flux_z[id(i, j, k)] - momentum_z_flux_z[id(i, j, k - 1)]);
 
   energy[id(i, j, k)] -=
-      dt * DS *
-      (energy_flux_x[id(i, j, k)] - energy_flux_x[id(i - 1, j, k)] +
-       energy_flux_y[id(i, j, k)] - energy_flux_y[id(i, j - 1, k)] +
-       energy_flux_z[id(i, j, k)] - energy_flux_z[id(i, j, k - 1)]);
+      dt *
+          ((DS * (energy_flux_x[id(i, j, k)] - energy_flux_x[id(i - 1, j, k)] +
+                 energy_flux_y[id(i, j, k)] - energy_flux_y[id(i, j - 1, k)] +
+                 energy_flux_z[id(i, j, k)] - energy_flux_z[id(i, j, k - 1)])) -
+      Q[id(i, j, k)]);
 }

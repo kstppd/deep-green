@@ -50,6 +50,8 @@ template <typename T> consteval auto get_init_function() {
     return &init_trb<T>;
   } else if constexpr (RUN_SETUP == EULERCFD::SETUP::GREENHOUSE) {
     return &init_greenhouse<T>;
+  } else if constexpr (RUN_SETUP == EULERCFD::SETUP::TEST_HEAT) {
+    return &init_heat_test<T>;
   } else if constexpr (RUN_SETUP == EULERCFD::SETUP::SOD) {
     return &init_sod<T>;
   } else {

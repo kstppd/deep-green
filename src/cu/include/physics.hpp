@@ -41,6 +41,7 @@ void init_khi(
                  BACKEND::HOST>
       hostgrid;
   hostgrid.p.fill(T(2.5));
+  hostgrid.vol_heat.fill(T(0.0));
   hostgrid.vy.fill(T(0));
 
   auto logic2dbl = [](auto condition) -> T { return condition ? T(1) : T(0); };
@@ -85,6 +86,7 @@ void init_khi(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
 }
 
 template <typename T>
@@ -104,6 +106,7 @@ void init_trb(
                  BACKEND::HOST>
       hostgrid;
 
+  hostgrid.vol_heat.fill(T(0.0));
   std::size_t nx = hostgrid.nx();
   std::size_t ny = hostgrid.ny();
   std::size_t nz = hostgrid.nz();
@@ -159,6 +162,7 @@ void init_trb(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
 }
 
 template <typename T>
@@ -184,6 +188,7 @@ void init_sod(
   T ds = hostgrid.dsx();
   std::size_t ghosts = EULERCFD::CONSTS::NGHOSTS;
 
+  hostgrid.vol_heat.fill(T(0.0));
   hostgrid.vx.fill(T(0.0));
   hostgrid.vy.fill(T(0.0));
   hostgrid.vz.fill(T(0.0));
@@ -209,6 +214,56 @@ void init_sod(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
+}
+
+
+template <typename T>
+void init_heat_test(
+    EULERCFD::Grid<T,
+                   GridInfo<T>{EULERCFD::CONSTS::NX, EULERCFD::CONSTS::NY,
+                               EULERCFD::CONSTS::NZ, EULERCFD::CONSTS::NGHOSTS,
+                               EULERCFD::CONSTS::LX, EULERCFD::CONSTS::LY,
+                               EULERCFD::CONSTS::LZ},
+                   BACKEND::DEVICE> &simgrid) {
+
+  EULERCFD::Grid<T,
+                 GridInfo<T>{EULERCFD::CONSTS::NX, EULERCFD::CONSTS::NY,
+                             EULERCFD::CONSTS::NZ, EULERCFD::CONSTS::NGHOSTS,
+                             EULERCFD::CONSTS::LX, EULERCFD::CONSTS::LY,
+                             EULERCFD::CONSTS::LZ},
+                 BACKEND::HOST>
+      hostgrid;
+
+  std::size_t nx = hostgrid.nx();
+  std::size_t ny = hostgrid.ny();
+  std::size_t nz = hostgrid.nz();
+  T ds = hostgrid.dsx();
+  std::size_t ghosts = EULERCFD::CONSTS::NGHOSTS;
+
+  hostgrid.vol_heat.fill(T(0.0));
+
+  for (std::size_t j = 0; j < ny; ++j) {
+    for (std::size_t k = 0; k < nz; ++k) {
+      hostgrid.vol_heat(2, j, k) = 10.0;
+      hostgrid.vol_heat(EULERCFD::CONSTS::NX-3, j, k) = -10.0;
+      
+    }
+  }
+
+  hostgrid.vx.fill(T(0.0));
+  hostgrid.vy.fill(T(0.0));
+  hostgrid.vz.fill(T(0.0));
+  hostgrid.p.fill(T(101325.0));
+  hostgrid.rho.fill(T(101325.0/287.0));
+  assert(EULERCFD::CONSTS::GRAVITY == false && "Test does not support gravity");
+
+  simgrid.rho = hostgrid.rho;
+  simgrid.p = hostgrid.p;
+  simgrid.vx = hostgrid.vx;
+  simgrid.vy = hostgrid.vy;
+  simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
 }
 
 template <typename T>
@@ -231,6 +286,7 @@ void init_greenhouse(
   std::size_t nx = hostgrid.nx();
   std::size_t ny = hostgrid.ny();
   std::size_t nz = hostgrid.nz();
+  hostgrid.vol_heat.fill(T(0.0));
   T ds = hostgrid.dsx(); // Assuming uniform spacing in all directions
   std::size_t ghosts = EULERCFD::CONSTS::NGHOSTS;
 
@@ -258,6 +314,7 @@ void init_greenhouse(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
 }
 
 template <typename T>
@@ -289,6 +346,7 @@ void init_square(
   hostgrid.vy.fill(T(0.0));
   hostgrid.p.fill(T(101000.0));
   hostgrid.rho.fill(T(1.0));
+  hostgrid.vol_heat.fill(T(0.0));
 
   const T p0 = T(101000.0); // Pressure at sea level
   const T t0 = T(293.0);    // Temperature in Kelvin
@@ -314,6 +372,7 @@ void init_square(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.vol_heat = hostgrid.vol_heat;
 }
 
 template <typename T, std::size_t N>
@@ -475,7 +534,7 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw6;
   kernel_calc_addfluxes<T, G.dsx()>
       <<<lp[0], lp[1]>>>(simgrid.get_fluxes_pointers(),
-                         simgrid.get_conserved_pointers(), simgrid.size(), dt);
+                         simgrid.get_conserved_pointers(),simgrid.vol_heat.data(), simgrid.size(), dt);
   cudaDeviceSynchronize();
   tp = (4 * primitives_size_bytes) / sw6.elapsed().count() / TB;
   flops = 45 * workers / sw6.elapsed().count() / 1e9;

@@ -32,6 +32,7 @@ public:
   Grid& operator=(Grid&& other)=delete;
   ~Grid(){}
   
+  Matrix3d<T, Info, Backend> vol_heat;
   Matrix3d<T, Info, Backend> rho, vx, vy, vz, p;
   Matrix3d<T, Info, Backend> rho_xtr, vx_xtr, vy_xtr, vz_xtr, p_xtr;
   Matrix3d<T, Info, Backend> drho_x, drho_y, drho_z, dvx_x, dvx_y, dvx_z, dvy_x,

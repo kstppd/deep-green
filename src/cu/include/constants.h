@@ -40,33 +40,31 @@
 #endif
 
 namespace EULERCFD {
-enum SETUP { KHI, TRB,SOD,GREENHOUSE };
-enum class BC { PERIODIC, WALL, CONDUCTING_WALL, OUTFLOW };
+enum SETUP { KHI, TRB,SOD,GREENHOUSE,TEST_HEAT };
+enum class BC { PERIODIC, WALL, OUTFLOW };
 
 namespace CONSTS {
 
 inline constexpr float GAMMA = 5.0 / 3.0;
 inline constexpr float CFL = 0.2;
-inline constexpr float DELTA = 1.0 / 128;
-inline constexpr std::size_t NX = 128;
+inline constexpr float DELTA = 1.0 ;
+inline constexpr std::size_t NX = 1024;
 inline constexpr std::size_t NY = 6;
-inline constexpr std::size_t NZ = 128;
+inline constexpr std::size_t NZ = 6;
 inline constexpr float LX = NX * DELTA;
 inline constexpr float LY = NY * DELTA;
 inline constexpr float LZ = NZ * DELTA;
 inline constexpr std::size_t NGHOSTS = 2;
-inline constexpr float TMAX = 100;
-inline constexpr float TOUT = TMAX/2000;
-inline constexpr std::size_t MAXSTEPS = 100000000000;
+inline constexpr float TMAX = 10*3600;
+inline constexpr float TOUT = TMAX/100;
+inline constexpr std::size_t MAXSTEPS = 1000000000000;
 
 inline constexpr float G = 9.81;
 inline constexpr float RS = 287.0;
 inline constexpr bool GRAVITY = false;
-inline constexpr float T_OUT_KELVIN = 273.0f;
-inline constexpr float VOUT_MS = 0.0f;
-constexpr SETUP RUN_SETUP=SETUP::KHI;
-inline constexpr std::array<BC, 6> bcs = {BC::PERIODIC, BC::PERIODIC,
-                                          BC::PERIODIC, BC::PERIODIC,
+constexpr SETUP RUN_SETUP=SETUP::TEST_HEAT;
+inline constexpr std::array<BC, 6> bcs = {BC::WALL, BC::PERIODIC,
+                                          BC::PERIODIC, BC::WALL,
                                           BC::PERIODIC, BC::PERIODIC};
 
 } // namespace CONSTS
