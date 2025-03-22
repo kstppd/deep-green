@@ -45,7 +45,9 @@ struct GridInfo {
   dev_host constexpr std::size_t nx() const noexcept { return _nx; }
   dev_host constexpr std::size_t ny() const noexcept { return _ny; }
   dev_host constexpr std::size_t nz() const noexcept { return _nz; }
-  dev_host constexpr std::size_t size() const noexcept { return nx()*ny()*nz(); }
+  dev_host constexpr std::size_t size() const noexcept {
+    return nx() * ny() * nz();
+  }
   dev_host constexpr T lx() const noexcept { return _lx; }
   dev_host constexpr T ly() const noexcept { return _ly; }
   dev_host constexpr T lz() const noexcept { return _lz; }
@@ -120,7 +122,7 @@ public:
 
   T *data() noexcept { return _data; }
 
-   constexpr std::size_t size() const noexcept {
+  constexpr std::size_t size() const noexcept {
     return Info._nx * Info._ny * Info._nz;
   }
   dev_host constexpr std::size_t nx() const noexcept { return Info._nx; }
@@ -140,23 +142,26 @@ public:
   // private:
   dev_host constexpr std::size_t index(std::size_t i, std::size_t j,
                                        std::size_t k) const noexcept {
-    return id_f(i,j,k);
+    return id_f(i, j, k);
   }
 
   host_only T *allocate(std::size_t elements) {
     T *ptr = nullptr;
     if constexpr (backend == BACKEND::HOST) {
-      spdlog::debug("Host allocation of [{0:d} elements and  {1:d}] bytes ", elements,elements * sizeof(T));
+      spdlog::debug("Host allocation of [{0:d} elements and  {1:d}] bytes ",
+                    elements, elements * sizeof(T));
       ptr = (T *)HOST_MATRIX_MALLOC(elements * sizeof(T));
       memset(ptr, 0, elements * sizeof(T));
     }
     if constexpr (backend == BACKEND::DEVICE) {
-      spdlog::debug("Cuda allocation of [{0:d} elemenents and {1:d}] bytes ", elements,elements * sizeof(T));
+      spdlog::debug("Cuda allocation of [{0:d} elemenents and {1:d}] bytes ",
+                    elements, elements * sizeof(T));
       DEVICE_MATRIX_MALLOC(&ptr, elements * sizeof(T));
       cudaMemset(ptr, 0, elements * sizeof(T));
     }
-    if (!ptr){
-      spdlog::critical("ERROR: Failed to allocate [{0:d}] bytes",elements*sizeof(T));
+    if (!ptr) {
+      spdlog::critical("ERROR: Failed to allocate [{0:d}] bytes",
+                       elements * sizeof(T));
       throw std::bad_alloc();
     }
     return ptr;

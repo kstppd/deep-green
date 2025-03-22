@@ -67,8 +67,9 @@ int main() {
   set_log_level();
   spdlog::info("Starting Simulation!");
   EULERCFD::compute(
-      EULERCFD::Grid<type_t, EULERCFD::GridInfo<type_t>{NX, NY, NZ, NGHOSTS, LX, LY, LZ},
-           BACKEND::DEVICE>{},
+      EULERCFD::Grid<
+          type_t, EULERCFD::GridInfo<type_t>{NX, NY, NZ, NGHOSTS, LX, LY, LZ},
+          BACKEND::DEVICE>{},
       type_t(EULERCFD::CONSTS::TMAX), EULERCFD::CONSTS::MAXSTEPS,
       type_t(EULERCFD::CONSTS::TOUT), get_init_function<type_t>());
   spdlog::info("Simulation done in {0:f} seconds!", sw);

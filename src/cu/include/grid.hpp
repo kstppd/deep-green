@@ -1,4 +1,4 @@
- /* File:   eulernv.cu
+/* File:   eulernv.cu
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -11,7 +11,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  * */
 #pragma once
 #include "matrix3d.hpp"
@@ -21,7 +22,7 @@
 #include <vector>
 
 namespace EULERCFD {
-  
+
 template <typename T>
 constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
   return std::sqrt(std::pow((x - cx), T(2)) + std::pow((y - cy), T(2)) +
@@ -55,7 +56,8 @@ constexpr dev_host std::array<std::size_t, 3> real2sim(std::array<T, 3> r) {
 }
 
 template <typename T>
-std::array<T, 3> dev_host sim2real(std::size_t i, std::size_t j, std::size_t k) {
+std::array<T, 3> dev_host sim2real(std::size_t i, std::size_t j,
+                                   std::size_t k) {
   return std::array<T, 3>{(i + T(0.5)) * EULERCFD::CONSTS::DELTA,
                           (j + T(0.5)) * EULERCFD::CONSTS::DELTA,
                           (k + T(0.5)) * EULERCFD::CONSTS::DELTA};
@@ -66,17 +68,15 @@ dev_host std::array<T, 3> sim2real(std::array<std::size_t, 3> ijk) {
   return sim2real<T>(ijk[0], ijk[1], ijk[2]);
 }
 
-
 template <typename T, GridInfo<T> Info, BACKEND Backend> class Grid {
 public:
+  Grid() {}
+  Grid(const Grid &other) = delete;
+  Grid(Grid &&other) = delete;
+  Grid &operator=(const Grid &other) = delete;
+  Grid &operator=(Grid &&other) = delete;
+  ~Grid() {}
 
-  Grid(){}
-  Grid(const Grid& other)=delete;
-  Grid(Grid&& other)=delete;
-  Grid& operator=(const Grid& other)=delete;
-  Grid& operator=(Grid&& other)=delete;
-  ~Grid(){}
-  
   Matrix3d<T, Info, Backend> rho, vx, vy, vz, p;
   Matrix3d<T, Info, Backend> rho_xtr, vx_xtr, vy_xtr, vz_xtr, p_xtr;
   Matrix3d<T, Info, Backend> drho_x, drho_y, drho_z, dvx_x, dvx_y, dvx_z, dvy_x,
@@ -188,7 +188,6 @@ public:
     // drho_z.export_to_host(buffer.data());
     // dset = file.createDataSet<T>("gradients/rhoz", DataSpace(get_dims()));
     // dset.write_raw(buffer.data());
-    
 
     fmass_x.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmassx", DataSpace(get_dims()));
@@ -202,7 +201,6 @@ public:
     dset = file.createDataSet<T>("fluxes/fmassz", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
 
-
     fmomx_x.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomx_x", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
@@ -214,7 +212,7 @@ public:
     fmomx_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomx_z", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
-    
+
     fmomy_x.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomy_x", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
@@ -226,7 +224,7 @@ public:
     fmomy_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomy_z", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
-    
+
     fmomz_x.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomz_x", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
@@ -238,7 +236,7 @@ public:
     fmomz_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fmomz_z", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
-    
+
     fe_x.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fe_x", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
@@ -250,12 +248,10 @@ public:
     fe_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fe_z", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
-    
+
     sdf_object.export_to_host(buffer.data());
     dset = file.createDataSet<T>("sdf_object", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
-
   }
-  
 };
 } // namespace EULERCFD

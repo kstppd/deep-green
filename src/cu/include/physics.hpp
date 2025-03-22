@@ -345,11 +345,11 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
         const auto y = r[1];
         const auto z = r[2];
         const auto val = sdf(x, y, z, cx, cy, cz, radious);
-        if (val>0){
-          sdf_object(i,j,k)=100.0;
+        if (val > 0) {
+          sdf_object(i, j, k) = 100.0;
         }
-        if (val<0){
-          sdf_object(i,j,k)=-100.0;
+        if (val < 0) {
+          sdf_object(i, j, k) = -100.0;
         }
         const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
         const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
@@ -391,7 +391,7 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
         const auto x = r[0];
         const auto y = r[1];
         const auto z = r[2];
-        if (sdf_object(i, j, k) == 0 ) {
+        if (sdf_object(i, j, k) == 0) {
 
           const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
           const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
@@ -408,7 +408,7 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
           // Now we step along normal to find the first +- neighbors
           const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
           std::size_t steps_taken = 1;
-          // clang-format off
+// clang-format off
           //FIXME TODO
           #warning :"FIXME: 50 steps can take you to the opposite boundary surface which breaks this method!"
           #warning :"FIXME: handle float comparision with 0 using epsilon "
@@ -470,8 +470,8 @@ void init_tunnel(
 }
 
 template <typename T, std::size_t N>
-void apply_boundaries(std::array<T *, N> src,T const* sdf_mask, std::size_t len,
-                      std::array<std::size_t, 2> lp) {
+void apply_boundaries(std::array<T *, N> src, T const *sdf_mask,
+                      std::size_t len, std::array<std::size_t, 2> lp) {
   kernel_update_ghosts<T, 0, EULERCFD::CONSTS::bcs[0],
                        EULERCFD::CONSTS::NGHOSTS><<<lp[0], lp[1]>>>(src, len);
   kernel_update_ghosts<T, 1, EULERCFD::CONSTS::bcs[1],
@@ -520,9 +520,9 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc Primitives");
   // Primitives
   spdlog::stopwatch sw0;
-  kernel_calc_primitives<T, G.dv()>
-      <<<lp[0], lp[1]>>>(simgrid.get_conserved_pointers(),
-                         simgrid.get_primitive_pointers(), simgrid.sdf_object.data(), simgrid.size());
+  kernel_calc_primitives<T, G.dv()><<<lp[0], lp[1]>>>(
+      simgrid.get_conserved_pointers(), simgrid.get_primitive_pointers(),
+      simgrid.sdf_object.data(), simgrid.size());
   cudaDeviceSynchronize();
   float tp = 2 * primitives_size_bytes / sw0.elapsed().count() / TB;
   float flops = 16 * workers / sw0.elapsed().count() / 1e9;
@@ -555,9 +555,9 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc Gradients");
   // Gradients
   spdlog::stopwatch sw3;
-  kernel_calc_gradients<T, G.dsx()>
-      <<<lp[0], lp[1]>>>(simgrid.get_primitive_pointers(),
-                         simgrid.get_gradients_pointers(),simgrid.sdf_object.data(), simgrid.size());
+  kernel_calc_gradients<T, G.dsx()><<<lp[0], lp[1]>>>(
+      simgrid.get_primitive_pointers(), simgrid.get_gradients_pointers(),
+      simgrid.sdf_object.data(), simgrid.size());
   cudaDeviceSynchronize();
   tp = (primitives_size_bytes + gradient_size_bytes) / sw3.elapsed().count() /
        TB;
@@ -574,7 +574,8 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw4;
   kernel_calc_xtr<T, G.dsx()><<<lp[0], lp[1]>>>(
       simgrid.get_primitive_pointers(), simgrid.get_primitive_xtr_pointers(),
-      simgrid.get_gradients_pointers(), simgrid.sdf_object.data(), simgrid.size(), dt);
+      simgrid.get_gradients_pointers(), simgrid.sdf_object.data(),
+      simgrid.size(), dt);
   cudaDeviceSynchronize();
   tp = (2 * primitives_size_bytes + gradient_size_bytes) /
        sw4.elapsed().count() / TB;
@@ -585,7 +586,7 @@ std::array<T, 3> compute_step(
                 "{4:f} GFLOPS) .",
                 lp[0], lp[1], sw4, tp, flops);
   PROFILE_END();
-  
+
   PROFILE_START("BCs Primitives XTR");
   apply_boundaries<T>(simgrid.get_primitive_xtr_pointers(),
                       simgrid.sdf_object.data(), simgrid.size(), lp);
@@ -639,9 +640,9 @@ std::array<T, 3> compute_step(
   PROFILE_START("Add Fluxes ");
   // Add Fluxes
   spdlog::stopwatch sw6;
-  kernel_calc_addfluxes<T, G.dsx()>
-      <<<lp[0], lp[1]>>>(simgrid.get_fluxes_pointers(),
-                         simgrid.get_conserved_pointers(), simgrid.sdf_object.data(), simgrid.size(), dt);
+  kernel_calc_addfluxes<T, G.dsx()><<<lp[0], lp[1]>>>(
+      simgrid.get_fluxes_pointers(), simgrid.get_conserved_pointers(),
+      simgrid.sdf_object.data(), simgrid.size(), dt);
   cudaDeviceSynchronize();
   tp = (4 * primitives_size_bytes) / sw6.elapsed().count() / TB;
   flops = 45 * workers / sw6.elapsed().count() / 1e9;
