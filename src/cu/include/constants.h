@@ -41,7 +41,7 @@
 
 namespace EULERCFD {
 enum SETUP { KHI, TRB,SOD,GREENHOUSE };
-enum class BC { PERIODIC, WALL, CONDUCTING_WALL, OUTFLOW };
+enum class BC { PERIODIC, WALL, OUTFLOW };
 
 namespace CONSTS {
 
