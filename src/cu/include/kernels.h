@@ -36,7 +36,7 @@ __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
     return;
   }
   const auto object_val=sdf_mask[tid];
-  if (object_val<1.0){
+  if (object_val< -1.0){
     return;
   }
   T store = primitives[0][tid];
@@ -64,7 +64,7 @@ __global__ void kernel_calc_primitives(std::array<T *, N> conserved,
     return;
   }
   const auto object_val=sdf_mask[tid];
-  if (object_val<1.0){
+  if (object_val< -1.0){
     return;
   }
 
@@ -109,7 +109,7 @@ __global__ void reduce_min_kernel(std::array<T *, N> primitives,const T* sdf_mas
                       primitives[3][tid] * primitives[3][tid]));
 
   const auto object_val = sdf_mask[tid];
-  if (object_val < 1.0) {
+  if (object_val < -1.0) {
     cand = std::numeric_limits<T>::max();
   }
   T min_val = warp_reduce_min(cand);
@@ -170,7 +170,7 @@ __global__ void kernel_calc_gradients(std::array<T *, N> src,
     return;
   }
   const auto object_val=sdf_mask[tid];
-  if (object_val<1.0){
+  if (object_val< -1.0){
    return;
   }
 
@@ -237,22 +237,122 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src, const T* sdf
     return id_f(i, j, k);
   };
 
-
-  const auto isOnObject=sdf_mask[id(i,j,k)]>0.5;
+  const auto isOnObject=std::abs(sdf_mask[id(i,j,k)])<1.0;
   if (!isOnObject){
     return;
   }
 
 
+  constexpr T radious = EULERCFD::CONSTS::RADIOUS;
+  constexpr T nx = EULERCFD::CONSTS::NX;
+  constexpr T ny = EULERCFD::CONSTS::NY;
+  constexpr T nz = EULERCFD::CONSTS::NZ;
+  constexpr T cx = (nx / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cy = (ny / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cz = (nz / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr std::array<T, 3> c{cx, cy, cz};
 
+  const auto r = EULERCFD::sim2real<T>(i, j, k);
+  const auto x = r[0];
+  const auto y = r[1];
+  const auto z = r[2];
+  const auto val = EULERCFD::sdf<T>(x, y, z, cx, cy, cz, radious);
+  const std::array<T, 3> xfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i + 1, j, k));
+  const std::array<T, 3> xbwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i - 1, j, k));
+  const std::array<T, 3> yfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j + 1, k));
+  const std::array<T, 3> ybwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j - 1, k));
+  const std::array<T, 3> zfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k + 1));
+  const std::array<T, 3> zbwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k - 1));
+
+  const std::array<T, 3> _normal =
+      std::array<T, 3>{EULERCFD::sdf<T>(xfwd, c, radious) - EULERCFD::sdf<T>(xbwd, c, radious),
+                       EULERCFD::sdf<T>(yfwd, c, radious) - EULERCFD::sdf<T>(ybwd, c, radious),
+                       EULERCFD::sdf<T>(zfwd, c, radious) - EULERCFD::sdf<T>(zbwd, c, radious)};
+
+  const std::array<T, 3> normal = normalize_array(
+      std::array<T, 3>{EULERCFD::sdf<T>(xfwd, c, radious) - EULERCFD::sdf<T>(xbwd, c, radious),
+                       EULERCFD::sdf<T>(yfwd, c, radious) - EULERCFD::sdf<T>(ybwd, c, radious),
+                       EULERCFD::sdf<T>(zfwd, c, radious) - EULERCFD::sdf<T>(zbwd, c, radious)});
+
+
+  // At this point we have our normal vector. Yeyyy :)
+
+  //Here we collect +1,-1 neighbors;
+  std::array<T,3>pm,pp;// point minus(pm) ,  point_plus(pp)
+  bool ok1=false;
+  bool ok2=false;
+  const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
+  std::size_t steps_taken=0;
+  while (steps_taken < 50 /*heuristic*/) {
+    pm = EULERCFD::sim2real<T>(EULERCFD::real2sim(
+        x - steps_taken * step * normal[0], y - steps_taken * step * normal[1],
+        z - steps_taken * step * normal[2]));
+    auto ijk = EULERCFD::real2sim<T>(pm);
+
+    if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
+      steps_taken++;
+      continue;
+    }else{
+      ok2=true;
+      break;
+    } 
+    steps_taken++;
+  }
+  
+  steps_taken=0;
+  while (steps_taken < 50 /*heuristic*/) {
+    pp= EULERCFD::sim2real<T>(EULERCFD::real2sim(
+        x + steps_taken * step * normal[0], y + steps_taken * step * normal[1],
+        z + steps_taken * step * normal[2]));
+    auto ijk = EULERCFD::real2sim<T>(pp);
+    if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
+      steps_taken++;
+      continue;
+    }else{
+      ok1=true;
+      break;
+    } 
+    steps_taken++;
+  }
+  
+  //At this poitnt we have 2 neighbors;
+  const auto  ijk_pp = EULERCFD::real2sim<T>(pp);
+  const auto  ijk_pm = EULERCFD::real2sim<T>(pm);
 
   
+  //pm and us get everyting apart from vx,vy,vz from pp
+  src[0][id(i,j,k)]=src[0][id(ijk_pp[0],ijk_pp[1],ijk_pp[2])] ;
+  src[4][id(i,j,k)]=src[4][id(ijk_pp[0],ijk_pp[1],ijk_pp[2])] ;
+  src[0][id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]=src[0][id(ijk_pp[0],ijk_pp[1],ijk_pp[2])] ;
+  src[4][id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]=src[4][id(ijk_pp[0],ijk_pp[1],ijk_pp[2])] ;
 
 
+  // Now we reflect the velocity of pp along the normal.
+  auto dot = [](const std::array<T, 3> &a, const std::array<T, 3> &b)->T {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  };
 
+  const std::array<T, 3> pp_vel = {src[1][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])],
+                                   src[2][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])],
+                                   src[3][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])]};
+  const T pp_dot_normal=dot(pp_vel,normal);
 
+  src[1][id(i,j,k)]=pp_vel[0]-T(2.0)*pp_dot_normal*normal[0]; 
+  src[2][id(i,j,k)]=pp_vel[1]-T(2.0)*pp_dot_normal*normal[1]; 
+  src[3][id(i,j,k)]=pp_vel[2]-T(2.0)*pp_dot_normal*normal[2]; 
   
-
+  src[1][id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]=pp_vel[0]-T(2.0)*pp_dot_normal*normal[0]; 
+  src[2][id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]=pp_vel[1]-T(2.0)*pp_dot_normal*normal[1]; 
+  src[3][id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]=pp_vel[2]-T(2.0)*pp_dot_normal*normal[2]; 
+  
+  // *((T*)(&sdf_mask[id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]))=-2400.0; 
+  // *((T*)(&sdf_mask[id(ijk_pp[0],ijk_pp[1],ijk_pp[2])]))= 2400.0; 
 }
 
 
@@ -462,7 +562,7 @@ __global__ void kernel_calc_xtr(std::array<T *, N> primitives,
     return;
   }
   const auto object_val = sdf_mask[tid];
-  if (object_val < 1.0) {
+  if (object_val < -1.0) {
     return;
   }
 
@@ -532,6 +632,7 @@ __global__ void kernel_calc_xtr(std::array<T *, N> primitives,
               (EULERCFD::CONSTS::GAMMA * p * (dvx_dx + dvy_dy + dvz_dz) +
                vx * dp_dx + vy * dp_dy + vz * dp_dz);
 }
+ 
 
 template <typename T, T DS>
 __global__ void
@@ -546,7 +647,7 @@ kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
     return;
   }
   const auto object_val = sdf_mask[tid];
-  if (object_val < 1.0) {
+  if (object_val < - 1.0) {
     return;
   }
 
@@ -671,7 +772,7 @@ __global__ void kernel_calc_addfluxes(std::array<T *, N2> fluxes,
     return;
   }
   const auto object_val = sdf_mask[tid];
-  if (object_val < 1.0) {
+  if (object_val < -1.0) {
     return;
   }
 

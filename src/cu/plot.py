@@ -38,14 +38,12 @@ def plotFile(input):
     data=h5.File(file)[var][:]
     print(data.shape)
     nz,ny,nx=np.shape(data)
-    # data=data[2:-2,2:-2,2:-2]
-    # nx-=4
-    # ny-=4
-    # nz-=4
-    print(np.shape(data))
-    # data= np.flip(data,0)
+    data=data[2:-2,2:-2,2:-2]
+    nx-=4
+    ny-=4
+    nz-=4
+    # np.save(var_short+"_"+str(cnt).zfill(7)+".npy",data)
     im=plt.imshow(np.flip(data[:,ny//2,:].T),cmap='gray_r',interpolation=None)
-    # im=plt.pcolormesh(np.flip(data[:,ny//2,:].T),cmap='seismic',edgecolors='k',linewidth=0.1)
     plt.colorbar()
     plt.xlabel("z")
     plt.ylabel("x")

@@ -48,15 +48,15 @@ namespace CONSTS {
 inline constexpr float GAMMA = 5.0 / 3.0;
 inline constexpr float CFL = 0.2;
 inline constexpr float DELTA = 1.0;
-inline constexpr std::size_t NX = 128;
-inline constexpr std::size_t NY = 64;
-inline constexpr std::size_t NZ = 64;
+inline constexpr std::size_t NX = 256;
+inline constexpr std::size_t NY = 128;
+inline constexpr std::size_t NZ = 128;
 inline constexpr float LX = NX * DELTA;
 inline constexpr float LY = NY * DELTA;
 inline constexpr float LZ = NZ * DELTA;
 inline constexpr std::size_t NGHOSTS = 2;
-inline constexpr float TMAX = 10.0;
-inline constexpr float TOUT = TMAX/100;
+inline constexpr float TMAX = 100.0;
+inline constexpr float TOUT = TMAX/400;
 inline constexpr std::size_t MAXSTEPS = 100000000000;
 
 inline constexpr float G = 9.81;
@@ -67,12 +67,13 @@ inline constexpr float VOUT_MS = 0.0f;
 inline constexpr float INFLOW_VELOCITY_X = 12.8f;
 inline constexpr float INFLOW_VELOCITY_Y = 0.0f;
 inline constexpr float INFLOW_VELOCITY_Z = 0.0f;
-inline constexpr float INFLOW_PRESSURE= 2.5f;
-inline constexpr float INFLOW_DENSITY = 1.2f;
+inline constexpr float INFLOW_PRESSURE= 1013.25;
+inline constexpr float INFLOW_DENSITY = 2*1.225f;
+inline constexpr float RADIOUS = 32.0 * EULERCFD::CONSTS::DELTA;
 constexpr SETUP RUN_SETUP=SETUP::TUNNEL;
-inline constexpr std::array<BC, 6> bcs = {BC::INFLOW, BC::PERIODIC,
-                                          BC::PERIODIC, BC::OUTFLOW,
-                                          BC::PERIODIC, BC::PERIODIC};
+inline constexpr std::array<BC, 6> bcs = {BC::INFLOW, BC::OUTFLOW,
+                                          BC::OUTFLOW, BC::OUTFLOW,
+                                          BC::OUTFLOW, BC::OUTFLOW};
 
 } // namespace CONSTS
 

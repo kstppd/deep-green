@@ -452,8 +452,8 @@ void init_tunnel(
                  BACKEND::HOST>
       hostgrid;
   // Set on host
-  hostgrid.rho.fill(T(1.0));
-  hostgrid.p.fill(T(2.5));
+  hostgrid.rho.fill(T(1.225));
+  hostgrid.p.fill(T(1013.25));
   hostgrid.vx.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_X));
   hostgrid.vy.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Y));
   hostgrid.vz.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Z));
@@ -470,7 +470,7 @@ void init_tunnel(
 }
 
 template <typename T, std::size_t N>
-void apply_boundaries(std::array<T *, N> src, std::size_t len,
+void apply_boundaries(std::array<T *, N> src,T const* sdf_mask, std::size_t len,
                       std::array<std::size_t, 2> lp) {
   kernel_update_ghosts<T, 0, EULERCFD::CONSTS::bcs[0],
                        EULERCFD::CONSTS::NGHOSTS><<<lp[0], lp[1]>>>(src, len);
@@ -484,6 +484,9 @@ void apply_boundaries(std::array<T *, N> src, std::size_t len,
                        EULERCFD::CONSTS::NGHOSTS><<<lp[0], lp[1]>>>(src, len);
   kernel_update_ghosts<T, 5, EULERCFD::CONSTS::bcs[5],
                        EULERCFD::CONSTS::NGHOSTS><<<lp[0], lp[1]>>>(src, len);
+  kernel_apply_sdf_object_bcs<T, 5, EULERCFD::CONSTS::bcs[5],
+                              EULERCFD::CONSTS::NGHOSTS>
+      <<<lp[0], lp[1]>>>(src, sdf_mask, len);
 }
 
 template <typename T, GridInfo<T> G>
@@ -533,8 +536,9 @@ std::array<T, 3> compute_step(
   // Primitives BCs
   PROFILE_START("BCs Primitives");
   spdlog::stopwatch sw1;
-  apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
-  // apply_boundaries<T>(simgrid.get_conserved_pointers(), simgrid.size(), lp);
+  apply_boundaries<T>(simgrid.get_primitive_pointers(),
+                      simgrid.sdf_object.data(), simgrid.size(), lp);
+  // apply_boundaries<T>(simgrid.get_xtr, simgrid.size(), lp);
   spdlog::debug("KERNEL::apply_boundaries [{0:d} x {1:d}] in {2:f} s.", lp[0],
                 lp[1], sw1);
   PROFILE_END();
@@ -580,6 +584,11 @@ std::array<T, 3> compute_step(
   spdlog::debug("KERNEL::cal_xtr [{0:d} x {1:d}] in {2:f} s ({3:f} TB/s | "
                 "{4:f} GFLOPS) .",
                 lp[0], lp[1], sw4, tp, flops);
+  PROFILE_END();
+  
+  PROFILE_START("BCs Primitives XTR");
+  apply_boundaries<T>(simgrid.get_primitive_xtr_pointers(),
+                      simgrid.sdf_object.data(), simgrid.size(), lp);
   PROFILE_END();
 
   PROFILE_START("Calc Fluxes");
@@ -671,7 +680,8 @@ void compute(Grid<T, G, BACKEND::DEVICE> &&simgrid, T total_time,
   init_function(simgrid);
 
   constexpr auto lp = launch_params(G.size());
-  apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
+  apply_boundaries<T>(simgrid.get_primitive_pointers(),
+                      simgrid.sdf_object.data(), simgrid.size(), lp);
   spdlog::debug("Launching calc_conserved kernel [{0:d} x {1:d}] ", lp[0],
                 lp[1]);
   kernel_calc_conserved<T, G.dv()><<<lp[0], lp[1]>>>(
