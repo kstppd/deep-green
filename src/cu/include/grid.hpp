@@ -28,6 +28,7 @@ constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
   return std::sqrt(std::pow((x - cx), T(2)) + std::pow((y - cy), T(2)) +
                    std::pow((z - cz), T(2))) -
          radious;
+  return 100;
 }
 
 template <typename T>
