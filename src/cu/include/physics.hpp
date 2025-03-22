@@ -519,7 +519,7 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw0;
   kernel_calc_primitives<T, G.dv()>
       <<<lp[0], lp[1]>>>(simgrid.get_conserved_pointers(),
-                         simgrid.get_primitive_pointers(), simgrid.size());
+                         simgrid.get_primitive_pointers(), simgrid.sdf_object.data(), simgrid.size());
   cudaDeviceSynchronize();
   float tp = 2 * primitives_size_bytes / sw0.elapsed().count() / TB;
   float flops = 16 * workers / sw0.elapsed().count() / 1e9;
@@ -542,7 +542,8 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc timestep");
   // Calc and Reduce timestep
   spdlog::stopwatch sw2;
-  dt = calc_timestep<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
+  dt = calc_timestep<T>(simgrid.get_primitive_pointers(),
+                        simgrid.sdf_object.data(), simgrid.size(), lp);
   spdlog::debug("KERNEL::cal_timestep [{0:d} x {1:d}] in {2:f} s.", lp[0],
                 lp[1], sw2);
   PROFILE_END();
@@ -552,7 +553,7 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw3;
   kernel_calc_gradients<T, G.dsx()>
       <<<lp[0], lp[1]>>>(simgrid.get_primitive_pointers(),
-                         simgrid.get_gradients_pointers(), simgrid.size());
+                         simgrid.get_gradients_pointers(),simgrid.sdf_object.data(), simgrid.size());
   cudaDeviceSynchronize();
   tp = (primitives_size_bytes + gradient_size_bytes) / sw3.elapsed().count() /
        TB;
@@ -569,7 +570,7 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw4;
   kernel_calc_xtr<T, G.dsx()><<<lp[0], lp[1]>>>(
       simgrid.get_primitive_pointers(), simgrid.get_primitive_xtr_pointers(),
-      simgrid.get_gradients_pointers(), simgrid.size(), dt);
+      simgrid.get_gradients_pointers(), simgrid.sdf_object.data(), simgrid.size(), dt);
   cudaDeviceSynchronize();
   tp = (2 * primitives_size_bytes + gradient_size_bytes) /
        sw4.elapsed().count() / TB;
@@ -590,7 +591,8 @@ std::array<T, 3> compute_step(
       simgrid.dvx_x.data(), simgrid.dvy_x.data(), simgrid.dvz_x.data(),
       simgrid.dp_x.data(), simgrid.rho_xtr.data(), simgrid.vx_xtr.data(),
       simgrid.vy_xtr.data(), simgrid.vz_xtr.data(), simgrid.p_xtr.data(),
-      simgrid.size(), std::array<std::size_t, 3>{1, 0, 0}, 0);
+      simgrid.sdf_object.data(), simgrid.size(),
+      std::array<std::size_t, 3>{1, 0, 0}, 0);
 
   kernel_calc_fluxes<T, G.dsx()><<<lp[0], lp[1], 0, streams[1]>>>(
       simgrid.fmass_y.data(), simgrid.fmomy_y.data(), simgrid.fmomx_y.data(),
@@ -598,7 +600,8 @@ std::array<T, 3> compute_step(
       simgrid.dvy_y.data(), simgrid.dvx_y.data(), simgrid.dvz_y.data(),
       simgrid.dp_y.data(), simgrid.rho_xtr.data(), simgrid.vy_xtr.data(),
       simgrid.vx_xtr.data(), simgrid.vz_xtr.data(), simgrid.p_xtr.data(),
-      simgrid.size(), std::array<std::size_t, 3>{0, 1, 0}, 1);
+      simgrid.sdf_object.data(), simgrid.size(),
+      std::array<std::size_t, 3>{0, 1, 0}, 1);
 
   kernel_calc_fluxes<T, G.dsx()><<<lp[0], lp[1], 0, streams[2]>>>(
       simgrid.fmass_z.data(), simgrid.fmomz_z.data(), simgrid.fmomx_z.data(),
@@ -606,7 +609,8 @@ std::array<T, 3> compute_step(
       simgrid.dvz_z.data(), simgrid.dvx_z.data(), simgrid.dvy_z.data(),
       simgrid.dp_z.data(), simgrid.rho_xtr.data(), simgrid.vz_xtr.data(),
       simgrid.vx_xtr.data(), simgrid.vy_xtr.data(), simgrid.p_xtr.data(),
-      simgrid.size(), std::array<std::size_t, 3>{0, 0, 1}, 2);
+      simgrid.sdf_object.data(), simgrid.size(),
+      std::array<std::size_t, 3>{0, 0, 1}, 2);
 
   cudaStreamSynchronize(streams[0]);
   cudaStreamSynchronize(streams[1]);
@@ -628,7 +632,7 @@ std::array<T, 3> compute_step(
   spdlog::stopwatch sw6;
   kernel_calc_addfluxes<T, G.dsx()>
       <<<lp[0], lp[1]>>>(simgrid.get_fluxes_pointers(),
-                         simgrid.get_conserved_pointers(), simgrid.size(), dt);
+                         simgrid.get_conserved_pointers(), simgrid.sdf_object.data(), simgrid.size(), dt);
   cudaDeviceSynchronize();
   tp = (4 * primitives_size_bytes) / sw6.elapsed().count() / TB;
   flops = 45 * workers / sw6.elapsed().count() / 1e9;
@@ -670,9 +674,9 @@ void compute(Grid<T, G, BACKEND::DEVICE> &&simgrid, T total_time,
   apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
   spdlog::debug("Launching calc_conserved kernel [{0:d} x {1:d}] ", lp[0],
                 lp[1]);
-  kernel_calc_conserved<T, G.dv()>
-      <<<lp[0], lp[1]>>>(simgrid.get_primitive_pointers(),
-                         simgrid.get_conserved_pointers(), simgrid.size());
+  kernel_calc_conserved<T, G.dv()><<<lp[0], lp[1]>>>(
+      simgrid.get_primitive_pointers(), simgrid.get_conserved_pointers(),
+      simgrid.sdf_object.data(), simgrid.size());
   cudaDeviceSynchronize();
 
   float max_tp = 0.0;

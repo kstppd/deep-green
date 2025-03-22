@@ -22,15 +22,21 @@
 #include <cmath>
 #include <cstddef>
 #include <cuda.h>
+#include <limits>
 #include <type_traits>
 
 template <typename T, T Volume, std::size_t N>
 __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
                                       std::array<T *, N> conserved,
+                                      const T* sdf_mask,
                                       std::size_t len) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
+    return;
+  }
+  const auto object_val=sdf_mask[tid];
+  if (object_val<1.0){
     return;
   }
   T store = primitives[0][tid];
@@ -50,12 +56,19 @@ __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
 template <typename T, T Volume, std::size_t N>
 __global__ void kernel_calc_primitives(std::array<T *, N> conserved,
                                        std::array<T *, N> primitives,
+                                       const T* sdf_mask,
                                        std::size_t len) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
     return;
   }
+  const auto object_val=sdf_mask[tid];
+  if (object_val<1.0){
+    return;
+  }
+
+
   primitives[0][tid] = conserved[0][tid] / Volume;
   primitives[1][tid] = conserved[1][tid] / (primitives[0][tid] * Volume);
   primitives[2][tid] = conserved[2][tid] / (primitives[0][tid] * Volume);
@@ -77,7 +90,7 @@ template <typename T> __inline__ __device__ T warp_reduce_min(T val) {
 }
 
 template <typename T, std::size_t N>
-__global__ void reduce_min_kernel(std::array<T *, N> primitives, T *block_mins,
+__global__ void reduce_min_kernel(std::array<T *, N> primitives,const T* sdf_mask, T *block_mins,
                                   std::size_t len) {
   __shared__ T shared_min[EULERCFD::DEVICE_PARAMETERS::WARPSIZE];
   std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -95,6 +108,10 @@ __global__ void reduce_min_kernel(std::array<T *, N> primitives, T *block_mins,
                       primitives[2][tid] * primitives[2][tid] +
                       primitives[3][tid] * primitives[3][tid]));
 
+  const auto object_val = sdf_mask[tid];
+  if (object_val < 1.0) {
+    cand = std::numeric_limits<T>::max();
+  }
   T min_val = warp_reduce_min(cand);
 
   if (lane == 0) {
@@ -115,7 +132,7 @@ __global__ void reduce_min_kernel(std::array<T *, N> primitives, T *block_mins,
 }
 
 template <typename T, std::size_t N>
-T calc_timestep(std::array<T *, N> primitives, std::size_t len,
+T calc_timestep(std::array<T *, N> primitives,const T* sdf_mask, std::size_t len,
                 std::array<std::size_t, 2> lp) {
   const auto threads_per_block = lp[1];
   const auto num_blocks = lp[0];
@@ -124,7 +141,7 @@ T calc_timestep(std::array<T *, N> primitives, std::size_t len,
   T *d_block_mins;
   DEVICE_MATRIX_MALLOC(&d_block_mins, num_blocks * sizeof(T));
 
-  reduce_min_kernel<<<num_blocks, threads_per_block>>>(primitives, d_block_mins,
+  reduce_min_kernel<<<num_blocks, threads_per_block>>>(primitives,sdf_mask, d_block_mins,
                                                        len);
 
   std::vector<T> h_block_mins(num_blocks, 0);
@@ -145,11 +162,16 @@ T calc_timestep(std::array<T *, N> primitives, std::size_t len,
 template <typename T, T DS, std::size_t N, std::size_t N2>
 __global__ void kernel_calc_gradients(std::array<T *, N> src,
                                       std::array<T *, N2> gradients,
+                                      const T* sdf_mask,
                                       std::size_t len) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
     return;
+  }
+  const auto object_val=sdf_mask[tid];
+  if (object_val<1.0){
+   return;
   }
 
   std::size_t i, j, k;
@@ -432,13 +454,18 @@ __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
 template <typename T, T DS, std::size_t N, std::size_t N2>
 __global__ void kernel_calc_xtr(std::array<T *, N> primitives,
                                 std::array<T *, N> primitives_xtr,
-                                std::array<T *, N2> gradients, std::size_t len,
+                                std::array<T *, N2> gradients, const T* sdf_mask, std::size_t len,
                                 T dt) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
     return;
   }
+  const auto object_val = sdf_mask[tid];
+  if (object_val < 1.0) {
+    return;
+  }
+
   std::size_t i, j, k;
   _1d23dindex_(tid, i, j, k);
 
@@ -511,11 +538,15 @@ __global__ void
 kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
                    T *momentum_z_flux_x, T *energy_flux_x, T *drho, T *dvx,
                    T *dvy, T *dvz, T *dp, T *rho, T *vx, T *vy, T *vz, T *p,
-                   std::size_t len, std::array<std::size_t, 3> offsets,
-                   std::size_t dim) {
+                   const T *sdf_mask, std::size_t len,
+                   std::array<std::size_t, 3> offsets, std::size_t dim) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
+    return;
+  }
+  const auto object_val = sdf_mask[tid];
+  if (object_val < 1.0) {
     return;
   }
 
@@ -632,10 +663,15 @@ kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
 template <typename T, T DS, std::size_t N, std::size_t N2>
 __global__ void kernel_calc_addfluxes(std::array<T *, N2> fluxes,
                                       std::array<T *, N> conserved,
+                                      const T* sdf_mask,
                                       std::size_t len, T dt) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
+    return;
+  }
+  const auto object_val = sdf_mask[tid];
+  if (object_val < 1.0) {
     return;
   }
 
