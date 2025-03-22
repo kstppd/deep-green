@@ -316,6 +316,37 @@ void init_square(
   simgrid.vz = hostgrid.vz;
 }
 
+template <typename T>
+void init_tunnel(
+    EULERCFD::Grid<T,
+                   GridInfo<T>{EULERCFD::CONSTS::NX, EULERCFD::CONSTS::NY,
+                               EULERCFD::CONSTS::NZ, EULERCFD::CONSTS::NGHOSTS,
+                               EULERCFD::CONSTS::LX, EULERCFD::CONSTS::LY,
+                               EULERCFD::CONSTS::LZ},
+                   BACKEND::DEVICE> &simgrid) {
+
+  EULERCFD::Grid<T,
+                 GridInfo<T>{EULERCFD::CONSTS::NX, EULERCFD::CONSTS::NY,
+                             EULERCFD::CONSTS::NZ, EULERCFD::CONSTS::NGHOSTS,
+                             EULERCFD::CONSTS::LX, EULERCFD::CONSTS::LY,
+                             EULERCFD::CONSTS::LZ},
+                 BACKEND::HOST>
+      hostgrid;
+  // Set on host
+  hostgrid.rho.fill(T(1.0));
+  hostgrid.p.fill(T(2.5));
+  hostgrid.vx.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_X));
+  hostgrid.vy.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Y));
+  hostgrid.vz.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Z));
+
+  // Copy to device
+  simgrid.rho = hostgrid.rho;
+  simgrid.p = hostgrid.p;
+  simgrid.vx = hostgrid.vx;
+  simgrid.vy = hostgrid.vy;
+  simgrid.vz = hostgrid.vz;
+}
+
 template <typename T, std::size_t N>
 void apply_boundaries(std::array<T *, N> src, std::size_t len,
                       std::array<std::size_t, 2> lp) {
@@ -381,7 +412,7 @@ std::array<T, 3> compute_step(
   PROFILE_START("BCs Primitives");
   spdlog::stopwatch sw1;
   apply_boundaries<T>(simgrid.get_primitive_pointers(), simgrid.size(), lp);
-  apply_boundaries<T>(simgrid.get_conserved_pointers(), simgrid.size(), lp);
+  // apply_boundaries<T>(simgrid.get_conserved_pointers(), simgrid.size(), lp);
   spdlog::debug("KERNEL::apply_boundaries [{0:d} x {1:d}] in {2:f} s.", lp[0],
                 lp[1], sw1);
   PROFILE_END();

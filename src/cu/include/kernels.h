@@ -24,7 +24,6 @@
 #include <cuda.h>
 #include <type_traits>
 
-
 template <typename T, T Volume, std::size_t N>
 __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
                                       std::array<T *, N> conserved,
@@ -268,9 +267,7 @@ __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
         src[q][id(i, j, k)] = src[q][id(i, j, jump_index)];
       }
     }
-  }
-
-  if constexpr (B == EULERCFD::BC::OUTFLOW) {
+  } else if constexpr (B == EULERCFD::BC::OUTFLOW) {
     std::size_t jump_index;
     if constexpr (D == 0) {
       if ((i >= NG)) {
@@ -322,9 +319,7 @@ __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
         src[q][id(i, j, k)] = src[q][id(i, j, jump_index)];
       }
     }
-  }
-
-  if constexpr (B == EULERCFD::BC::WALL ) {
+  } else if constexpr (B == EULERCFD::BC::WALL) {
     std::size_t jump_index;
     if constexpr (D == 0) {
       if ((i >= NG)) {
@@ -382,6 +377,23 @@ __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
         src[q][id(i, j, k)] = scale * src[q][id(i, j, jump_index)];
       }
     }
+  } else if constexpr (B == EULERCFD::BC::INFLOW) {
+    std::size_t jump_index;
+    if constexpr (D == 0) {
+      if ((i >= NG)) {
+        return;
+      }
+      jump_index = 2;
+      src[0][id(i, j, k)] = EULERCFD::CONSTS::INFLOW_DENSITY;
+      src[1][id(i, j, k)] = EULERCFD::CONSTS::INFLOW_VELOCITY_X;
+      src[2][id(i, j, k)] = EULERCFD::CONSTS::INFLOW_VELOCITY_Y;
+      src[3][id(i, j, k)] = EULERCFD::CONSTS::INFLOW_VELOCITY_Z;
+      src[4][id(i, j, k)] = EULERCFD::CONSTS::INFLOW_PRESSURE;
+    } else {
+      static_assert(sizeof(T) < 0 && "INFLOW only suppored for left X WALL!");
+    }
+  } else {
+    static_assert(sizeof(T) < 0 && "Boundary condition not suppored!");
   }
 }
 
@@ -556,7 +568,7 @@ kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
 
   energy_flux_x[id(i, j, k)] =
       (en_star + p_star) * (momentum_x_star / rho_star);
-   
+
   // Gravity term if enabled
   if (offsets[2] == 1 && EULERCFD::CONSTS::GRAVITY) {
     T h = (EULERCFD::CONSTS::NZ - 2.0f * EULERCFD::CONSTS::NGHOSTS) *

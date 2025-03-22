@@ -40,8 +40,8 @@
 #endif
 
 namespace EULERCFD {
-enum SETUP { KHI, TRB,SOD,GREENHOUSE };
-enum class BC { PERIODIC, WALL, OUTFLOW };
+enum SETUP { KHI, TRB,SOD,GREENHOUSE, TUNNEL };
+enum class BC { PERIODIC, WALL, OUTFLOW, INFLOW };
 
 namespace CONSTS {
 
@@ -64,6 +64,11 @@ inline constexpr float RS = 287.0;
 inline constexpr bool GRAVITY = true;
 inline constexpr float T_OUT_KELVIN = 273.0f;
 inline constexpr float VOUT_MS = 0.0f;
+inline constexpr float INFLOW_VELOCITY_X = 12.8f;
+inline constexpr float INFLOW_VELOCITY_Y = 0.0f;
+inline constexpr float INFLOW_VELOCITY_Z = 0.0f;
+inline constexpr float INFLOW_PRESSURE= 2.5f;
+inline constexpr float INFLOW_DENSITY = 1.2f;
 constexpr SETUP RUN_SETUP=SETUP::TRB;
 inline constexpr std::array<BC, 6> bcs = {BC::WALL, BC::WALL,
                                           BC::WALL, BC::WALL,

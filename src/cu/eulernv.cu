@@ -52,6 +52,8 @@ template <typename T> consteval auto get_init_function() {
     return &init_greenhouse<T>;
   } else if constexpr (RUN_SETUP == EULERCFD::SETUP::SOD) {
     return &init_sod<T>;
+  } else if constexpr (RUN_SETUP == EULERCFD::SETUP::TUNNEL) {
+    return &init_tunnel<T>;
   } else {
     static_assert(sizeof(T) < 0,
                   "Setup not supported"); // hack I know :) but compilers should
