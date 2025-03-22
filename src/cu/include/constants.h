@@ -69,6 +69,7 @@ inline constexpr float INFLOW_VELOCITY_Y = 0.0f;
 inline constexpr float INFLOW_VELOCITY_Z = 0.0f;
 inline constexpr float INFLOW_PRESSURE= 2.5f;
 inline constexpr float INFLOW_DENSITY = 1.2f;
+inline constexpr float RADIOUS = 10.0 * EULERCFD::CONSTS::DELTA;
 constexpr SETUP RUN_SETUP=SETUP::TUNNEL;
 inline constexpr std::array<BC, 6> bcs = {BC::INFLOW, BC::PERIODIC,
                                           BC::PERIODIC, BC::OUTFLOW,

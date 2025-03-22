@@ -21,6 +21,51 @@
 #include <vector>
 
 namespace EULERCFD {
+  
+template <typename T>
+constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
+  return std::sqrt(std::pow((x - cx), T(2)) + std::pow((y - cy), T(2)) +
+                   std::pow((z - cz), T(2))) -
+         radious;
+}
+
+template <typename T>
+constexpr dev_host T sdf(std::array<T, 3> p, std::array<T, 3> c, T radious) {
+  return sdf(p[0], p[1], p[2], c[0], c[1], c[2], radious);
+}
+
+template <typename T>
+constexpr dev_host std::array<T, 3> normalize_array(std::array<T, 3> x) {
+  const T mag = std::sqrt(std::pow(x[0], T(2)) + std::pow(x[1], T(2)) +
+                          std::pow(x[2], T(2)));
+  return {x[0] / mag, x[1] / mag, x[2] / mag};
+}
+
+template <typename T>
+constexpr dev_host std::array<std::size_t, 3> real2sim(T x, T y, T z) {
+  return std::array<std::size_t, 3>{
+      static_cast<std::size_t>(std::floor((x) / EULERCFD::CONSTS::DELTA)),
+      static_cast<std::size_t>(std::floor((y) / EULERCFD::CONSTS::DELTA)),
+      static_cast<std::size_t>(std::floor((z) / EULERCFD::CONSTS::DELTA))};
+}
+
+template <typename T>
+constexpr dev_host std::array<std::size_t, 3> real2sim(std::array<T, 3> r) {
+  return real2sim(r[0], r[1], r[2]);
+}
+
+template <typename T>
+std::array<T, 3> dev_host sim2real(std::size_t i, std::size_t j, std::size_t k) {
+  return std::array<T, 3>{(i + T(0.5)) * EULERCFD::CONSTS::DELTA,
+                          (j + T(0.5)) * EULERCFD::CONSTS::DELTA,
+                          (k + T(0.5)) * EULERCFD::CONSTS::DELTA};
+}
+
+template <typename T>
+dev_host std::array<T, 3> sim2real(std::array<std::size_t, 3> ijk) {
+  return sim2real<T>(ijk[0], ijk[1], ijk[2]);
+}
+
 
 template <typename T, GridInfo<T> Info, BACKEND Backend> class Grid {
 public:
@@ -40,6 +85,7 @@ public:
   Matrix3d<T, Info, Backend> fmass_x, fmass_y, fmass_z, fmomx_x, fmomx_y,
       fmomx_z, fmomy_x, fmomy_y, fmomy_z, fmomz_x, fmomz_y, fmomz_z, fe_x, fe_y,
       fe_z;
+  Matrix3d<T, Info, Backend> sdf_object;
 
   dev_host constexpr std::size_t size() const noexcept {
     return Info._nx * Info._ny * Info._nz;
@@ -203,6 +249,10 @@ public:
 
     fe_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fe_z", DataSpace(get_dims()));
+    dset.write_raw(buffer.data());
+    
+    sdf_object.export_to_host(buffer.data());
+    dset = file.createDataSet<T>("sdf_object", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
 
   }

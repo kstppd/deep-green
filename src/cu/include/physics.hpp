@@ -16,11 +16,15 @@
  * */
 #pragma once
 #include "constants.h"
+#include "include/matrix3d.hpp"
 #include "kernels.h"
 #include "spdlog/stopwatch.h"
+#include <array>
+#include <cmath>
 #include <cuda_device_runtime_api.h>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 namespace EULERCFD {
@@ -316,6 +320,121 @@ void init_square(
   simgrid.vz = hostgrid.vz;
 }
 
+template <typename T, GridInfo<T> Info, BACKEND Backend>
+void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
+  static_assert(Backend == BACKEND::HOST &&
+                "This can only be used on host grids tou idiot! So give me a "
+                "copy of that and "
+                "then copy back to device yourself!");
+
+  constexpr T radious = EULERCFD::CONSTS::RADIOUS;
+  constexpr T nx = EULERCFD::CONSTS::NX;
+  constexpr T ny = EULERCFD::CONSTS::NY;
+  constexpr T nz = EULERCFD::CONSTS::NZ;
+  constexpr T cx = (nx / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cy = (ny / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cz = (nz / 2) * EULERCFD::CONSTS::DELTA;
+  const std::array<T, 3> c{cx, cy, cz};
+
+  for (std::size_t i = 1; i < nx - 1; ++i) {
+    for (std::size_t j = 1; j < ny - 1; ++j) {
+      for (std::size_t k = 1; k < nz - 1; ++k) {
+
+        const auto r = sim2real<T>(i, j, k);
+        const auto x = r[0];
+        const auto y = r[1];
+        const auto z = r[2];
+        const auto val = sdf(x, y, z, cx, cy, cz, radious);
+        if (val>0){
+          sdf_object(i,j,k)=100.0;
+        }
+        if (val<0){
+          sdf_object(i,j,k)=-100.0;
+        }
+        const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
+        const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
+        const std::array<T, 3> yfwd = sim2real<T>(real2sim(i, j + 1, k));
+        const std::array<T, 3> ybwd = sim2real<T>(real2sim(i, j - 1, k));
+        const std::array<T, 3> zfwd = sim2real<T>(real2sim(i, j, k + 1));
+        const std::array<T, 3> zbwd = sim2real<T>(real2sim(i, j, k - 1));
+
+        const std::array<T, 3> normal = normalize_array(
+            std::array<T, 3>{sdf(xfwd, c, radious) - sdf(xbwd, c, radious),
+                             sdf(yfwd, c, radious) - sdf(ybwd, c, radious),
+                             sdf(zfwd, c, radious) - sdf(zbwd, c, radious)});
+
+        // Now we step along normal to find the first +- neighbors
+        const T step = 1.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
+        const std::array<T, 3> pp = sim2real<T>(real2sim(
+            x + step * normal[0], y + step * normal[1], z + step * normal[2]));
+        const std::array<T, 3> pm = sim2real<T>(real2sim(
+            x - step * normal[0], y - step * normal[1], z - step * normal[2]));
+        auto ijk = real2sim(pp);
+        if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
+          throw std::runtime_error("Step taken did not take us to a new cell!");
+        }
+        if (std::signbit(sdf(pp, c, radious)) !=
+            std::signbit(sdf(pm, c, radious))) {
+          sdf_object(i, j, k) = 0.0;
+        }
+      }
+    }
+  }
+
+  // Now we are left with a watertight surfaca but may get multiple positives
+  // along normals. So here
+  //  we clean them up
+  for (std::size_t i = 1; i < nx - 1; ++i) {
+    for (std::size_t j = 1; j < ny - 1; ++j) {
+      for (std::size_t k = 1; k < nz - 1; ++k) {
+        const auto r = sim2real<T>(i, j, k);
+        const auto x = r[0];
+        const auto y = r[1];
+        const auto z = r[2];
+        if (sdf_object(i, j, k) == 0 ) {
+
+          const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
+          const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
+          const std::array<T, 3> yfwd = sim2real<T>(real2sim(i, j + 1, k));
+          const std::array<T, 3> ybwd = sim2real<T>(real2sim(i, j - 1, k));
+          const std::array<T, 3> zfwd = sim2real<T>(real2sim(i, j, k + 1));
+          const std::array<T, 3> zbwd = sim2real<T>(real2sim(i, j, k - 1));
+
+          const std::array<T, 3> normal = normalize_array(
+              std::array<T, 3>{sdf(xfwd, c, radious) - sdf(xbwd, c, radious),
+                               sdf(yfwd, c, radious) - sdf(ybwd, c, radious),
+                               sdf(zfwd, c, radious) - sdf(zbwd, c, radious)});
+
+          // Now we step along normal to find the first +- neighbors
+          const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
+          std::size_t steps_taken = 1;
+          // clang-format off
+          //FIXME TODO
+          #warning :"FIXME: 50 steps can take you to the opposite boundary surface which breaks this method!"
+          #warning :"FIXME: handle float comparision with 0 using epsilon "
+          // clang-format on
+          while (steps_taken < 50 /*heuristic*/) {
+            const std::array<T, 3> pm =
+                sim2real<T>(real2sim(x - steps_taken * step * normal[0],
+                                     y - steps_taken * step * normal[1],
+                                     z - steps_taken * step * normal[2]));
+            auto ijk = real2sim(pm);
+            if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
+              steps_taken++;
+              continue;
+            }
+            if (sdf_object(ijk[0], ijk[1], ijk[2]) == 0.0) {
+              sdf_object(ijk[0], ijk[1], ijk[2]) = -100.0;
+            }
+            steps_taken++;
+          }
+        }
+      }
+    }
+  }
+  return;
+}
+
 template <typename T>
 void init_tunnel(
     EULERCFD::Grid<T,
@@ -338,6 +457,8 @@ void init_tunnel(
   hostgrid.vx.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_X));
   hostgrid.vy.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Y));
   hostgrid.vz.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Z));
+  hostgrid.sdf_object.fill(T(100));
+  build_sdf(hostgrid.sdf_object);
 
   // Copy to device
   simgrid.rho = hostgrid.rho;
@@ -345,6 +466,7 @@ void init_tunnel(
   simgrid.vx = hostgrid.vx;
   simgrid.vy = hostgrid.vy;
   simgrid.vz = hostgrid.vz;
+  simgrid.sdf_object = hostgrid.sdf_object;
 }
 
 template <typename T, std::size_t N>

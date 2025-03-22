@@ -203,6 +203,38 @@ __global__ void kernel_calc_gradients(std::array<T *, N> src,
 }
 
 template <typename T, int D, EULERCFD::BC B, int NG, std::size_t N>
+__global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src, const T* sdf_mask, std::size_t len) {
+  const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= len) {
+    return;
+  }
+  
+  std::size_t i, j, k;
+  _1d23dindex_(tid, i, j, k);
+  auto id = [](std::size_t i, std::size_t j, std::size_t k) -> std::size_t {
+    return id_f(i, j, k);
+  };
+
+
+  const auto isOnObject=sdf_mask[id(i,j,k)]>0.5;
+  if (!isOnObject){
+    return;
+  }
+
+
+
+
+  
+
+
+
+
+  
+
+}
+
+
+template <typename T, int D, EULERCFD::BC B, int NG, std::size_t N>
 __global__ void kernel_update_ghosts(std::array<T *, N> src, std::size_t len) {
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
