@@ -267,12 +267,7 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
       EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k + 1));
   const std::array<T, 3> zbwd =
       EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k - 1));
-
-  const std::array<T, 3> _normal = std::array<T, 3>{
-      EULERCFD::sdf<T>(xfwd, c, radious) - EULERCFD::sdf<T>(xbwd, c, radious),
-      EULERCFD::sdf<T>(yfwd, c, radious) - EULERCFD::sdf<T>(ybwd, c, radious),
-      EULERCFD::sdf<T>(zfwd, c, radious) - EULERCFD::sdf<T>(zbwd, c, radious)};
-
+    
   const std::array<T, 3> normal = normalize_array(std::array<T, 3>{
       EULERCFD::sdf<T>(xfwd, c, radious) - EULERCFD::sdf<T>(xbwd, c, radious),
       EULERCFD::sdf<T>(yfwd, c, radious) - EULERCFD::sdf<T>(ybwd, c, radious),
@@ -280,8 +275,20 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
 
   // At this point we have our normal vector. Yeyyy :)
 
-  // Here we collect +1,-1 neighbors;
-  std::array<T, 3> pm, pp; // point minus(pm) ,  point_plus(pp)
+  /* Here we collect +1,-1 neighbors along the normal direction: point minus(pm) , point_plus(pp)
+    *
+    *        ______________________________________________
+    *       |              |               |               |
+    *       |              |               |               |
+    *       |              |               |               |    Normal
+    *       |     pm       |   (i,j,k)     |      pp       | =============>
+    *       |              |               |               |
+    *       |              |               |               |
+    *       |              |               |               |
+    *       -----------------------------------------------
+    *   
+  */
+  std::array<T, 3> pm, pp; 
   bool ok1 = false;
   bool ok2 = false;
   const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
@@ -322,7 +329,7 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
   const auto ijk_pp = EULERCFD::real2sim<T>(pp);
   const auto ijk_pm = EULERCFD::real2sim<T>(pm);
 
-  // pm and us get everyting apart from vx,vy,vz from pp
+  // pm and us (i,j,k) get everyting apart from vx,vy,vz from pp
   src[0][id(i, j, k)] = src[0][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])];
   src[4][id(i, j, k)] = src[4][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])];
   src[0][id(ijk_pm[0], ijk_pm[1], ijk_pm[2])] =
@@ -330,7 +337,7 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
   src[4][id(ijk_pm[0], ijk_pm[1], ijk_pm[2])] =
       src[4][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])];
 
-  // Now we reflect the velocity of pp along the normal.
+  // Now we get v for pm and us(i,j,k) by reflecting the velocity of pp along the normal.
   auto dot = [](const std::array<T, 3> &a, const std::array<T, 3> &b) -> T {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   };
@@ -351,8 +358,7 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
   src[3][id(ijk_pm[0], ijk_pm[1], ijk_pm[2])] =
       pp_vel[2] - T(2.0) * pp_dot_normal * normal[2];
 
-  // *((T*)(&sdf_mask[id(ijk_pm[0],ijk_pm[1],ijk_pm[2])]))=-2400.0;
-  // *((T*)(&sdf_mask[id(ijk_pp[0],ijk_pp[1],ijk_pp[2])]))= 2400.0;
+    return;
 }
 
 template <typename T, int D, EULERCFD::BC B, int NG, std::size_t N>
