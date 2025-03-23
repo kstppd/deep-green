@@ -15,6 +15,7 @@
  * USA.
  * */
 #pragma once
+#include "include/constants.h"
 #include "matrix3d.hpp"
 #include <array>
 #include <cstddef>
@@ -22,6 +23,19 @@
 #include <vector>
 
 namespace EULERCFD {
+
+// template <typename T>
+// constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz,T radious) {
+//   constexpr T rx = T(EULERCFD::CONSTS::RADIOUS);
+//   constexpr T ry = T(EULERCFD::CONSTS::RADIOUS/2.);
+//   constexpr T rz = T(0.5*EULERCFD::CONSTS::RADIOUS);
+//   T dx = x - cx;
+//   T dy = y - cy;
+//   T dz = z - cz;
+//   T k0 = std::sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) + (dz * dz) / (rz * rz));
+//   T k1 = std::sqrt((dx * dx) / (rx * rx * rx * rx) + (dy * dy) / (ry * ry * ry * ry) + (dz * dz) / (rz * rz * rz * rz));
+//   return k0 * (k0 - T(1)) / k1;
+// }
 
 template <typename T>
 constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {

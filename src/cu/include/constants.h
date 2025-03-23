@@ -56,7 +56,7 @@ inline constexpr float LY = NY * DELTA;
 inline constexpr float LZ = NZ * DELTA;
 inline constexpr std::size_t NGHOSTS = 2;
 inline constexpr float TMAX = 10.0;
-inline constexpr float TOUT = TMAX/10;
+inline constexpr float TOUT = TMAX/100;
 inline constexpr std::size_t MAXSTEPS = 100000000000;
 
 inline constexpr float G = 9.81;

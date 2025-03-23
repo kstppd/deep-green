@@ -334,7 +334,7 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
   constexpr T cx = (nx / 2) * EULERCFD::CONSTS::DELTA;
   constexpr T cy = (ny / 2) * EULERCFD::CONSTS::DELTA;
   constexpr T cz = (nz / 2) * EULERCFD::CONSTS::DELTA;
-  const std::array<T, 3> c{cx, cy, cz};
+  constexpr std::array<T, 3> c{cx, cy, cz};
 
   for (std::size_t i = 1; i < nx - 1; ++i) {
     for (std::size_t j = 1; j < ny - 1; ++j) {
