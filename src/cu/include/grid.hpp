@@ -16,6 +16,7 @@
  * */
 #pragma once
 #include "include/constants.h"
+#include "sdf.h"
 #include "matrix3d.hpp"
 #include <array>
 #include <cstddef>
@@ -23,33 +24,6 @@
 #include <vector>
 
 namespace EULERCFD {
-
-// template <typename T>
-// constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz,T radious) {
-//   constexpr T rx = T(EULERCFD::CONSTS::RADIOUS);
-//   constexpr T ry = T(EULERCFD::CONSTS::RADIOUS/2.);
-//   constexpr T rz = T(0.5*EULERCFD::CONSTS::RADIOUS);
-//   T dx = x - cx;
-//   T dy = y - cy;
-//   T dz = z - cz;
-//   T k0 = std::sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) + (dz * dz) / (rz * rz));
-//   T k1 = std::sqrt((dx * dx) / (rx * rx * rx * rx) + (dy * dy) / (ry * ry * ry * ry) + (dz * dz) / (rz * rz * rz * rz));
-//   return k0 * (k0 - T(1)) / k1;
-// }
-
-template <typename T>
-constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
-  return std::sqrt(std::pow((x - cx), T(2)) + std::pow((y - cy), T(2)) +
-                   std::pow((z - cz), T(2))) -
-         radious;
-  return 100;
-}
-
-template <typename T>
-constexpr dev_host T sdf(std::array<T, 3> p, std::array<T, 3> c, T radious) {
-  return sdf(p[0], p[1], p[2], c[0], c[1], c[2], radious);
-}
-
 template <typename T>
 constexpr dev_host std::array<T, 3> normalize_array(std::array<T, 3> x) {
   const T mag = std::sqrt(std::pow(x[0], T(2)) + std::pow(x[1], T(2)) +
