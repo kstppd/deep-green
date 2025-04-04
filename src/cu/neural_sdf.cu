@@ -48,6 +48,8 @@ void train_point_cloud(const NumericMatrix::HostMatrix<float>& data){
   
   NumericMatrix::HostMatrix<float> x(data.nrows(),3);
   NumericMatrix::HostMatrix<float> y(data.nrows(),1);
+  // [:,0:3]-> spatial coords
+  // [:,-1]-> spatial distance
   for (std::size_t row = 0; row < data.nrows(); ++row){
     x(row, 0)= data(row * data.ncols() + 0);
     x(row, 1)= data(row * data.ncols() + 1);
@@ -86,9 +88,8 @@ int main(int argc, char **argv) {
   }
 
   const char *filename = argv[1];
-  NumericMatrix::HostMatrix<float> data = parse_point_cloud(filename);
+  const NumericMatrix::HostMatrix<float> data = parse_point_cloud(filename);
   train_point_cloud(data);
   
-
   return 0;
 }

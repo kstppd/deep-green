@@ -21,7 +21,7 @@ units={
         }
 
 limits={
-        "primitives/rho": [0.7,1.6],
+        "primitives/rho": [None,None],
         "primitives/vx" : [None,None],
         "primitives/vy" : [None,None],
         "primitives/vz" : [None,None],
@@ -33,8 +33,6 @@ def plotFile(input):
     var,file,cnt=input
     var_short=var.split("/")[-1]
     name=var_short+"_"+str(cnt).zfill(7)+".png"
-    # if os.path.exists(name):
-    #     return
     data=h5.File(file)[var][:]
     print(data.shape)
     nz,ny,nx=np.shape(data)
@@ -42,7 +40,6 @@ def plotFile(input):
     nx-=4
     ny-=4
     nz-=4
-    # np.save(var_short+"_"+str(cnt).zfill(7)+".npy",data)
     im=plt.imshow(np.flip(data[:,ny//2,:].T),cmap='gray_r',interpolation=None)
     plt.colorbar()
     plt.xlabel("z")

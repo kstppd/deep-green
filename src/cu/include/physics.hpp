@@ -452,8 +452,8 @@ void init_tunnel(
                  BACKEND::HOST>
       hostgrid;
   // Set on host
-  hostgrid.rho.fill(T(1.225));
-  hostgrid.p.fill(T(1013.25));
+  hostgrid.rho.fill(T(1.0*1.225));
+  hostgrid.p.fill(T(101325.0));
   hostgrid.vx.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_X));
   hostgrid.vy.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Y));
   hostgrid.vz.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Z));
