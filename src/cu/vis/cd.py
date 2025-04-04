@@ -7,7 +7,8 @@ import scipy.ndimage as ndimage
 
 def get_drag_force(p,sdf,flow=np.array([1, 0, 0]),ds=1.0):
     nx,ny,nz=p.shape
-    surface = np.argwhere(~np.isnan(sdf))
+    surface = np.argwhere(np.abs(sdf) <= 1)
+    print(len(surface))
     grad_px, grad_py, grad_pz = np.gradient(sdf.astype(float),ds,ds,ds)
     norm_magnitude = np.sqrt(grad_px**2 + grad_py**2 + grad_pz**2)
     normal_x = np.zeros_like(sdf)
@@ -34,8 +35,10 @@ def get_drag_coeff(file,upstream_vel,upstream_rho,radious):
     vx,vy,vz=h5.File(file)["primitives/vx"][:],h5.File(file)["primitives/vy"][:],h5.File(file)["primitives/vz"][:]
     p=h5.File(file)["primitives/p"][:]
     sdf=h5.File(file)["sdf_object"][:]
+    count = np.sum(np.abs(sdf) < 1)
     fd=get_drag_force(p,sdf)
-    S =4* np.pi * radious**2
+    print("--->",fd)
+    S =np.pi * radious**2
     cd=2.0*fd/(upstream_rho*upstream_vel*upstream_vel*S)
     print(f"Cd={cd}")
 

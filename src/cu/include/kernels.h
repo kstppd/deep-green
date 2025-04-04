@@ -152,6 +152,35 @@ __host__ __device__ T dot(const std::array<T, N> &a,
 
 
 template <typename T, std::size_t N>
+T calc_timestep(std::array<T *, N> primitives, const T *sdf_mask,
+                std::size_t len, std::array<std::size_t, 2> lp) {
+  const auto threads_per_block = lp[1];
+  const auto num_blocks = lp[0];
+  assert(num_blocks > 1);
+
+  T *d_block_mins;
+  DEVICE_MATRIX_MALLOC(&d_block_mins, num_blocks * sizeof(T));
+
+  reduce_min_kernel<<<num_blocks, threads_per_block>>>(primitives, sdf_mask,
+                                                       d_block_mins, len);
+
+  std::vector<T> h_block_mins(num_blocks, 0);
+  cudaMemcpy(h_block_mins.data(), d_block_mins, num_blocks * sizeof(T),
+             cudaMemcpyDeviceToHost);
+
+  auto global_min_ptr =
+      std::min_element(h_block_mins.cbegin(), h_block_mins.cend());
+  if (global_min_ptr == h_block_mins.end()) {
+    printf("ERROR: global min is bad");
+    abort();
+  }
+  T global_min = *global_min_ptr;
+  DEVICE_MATRIX_FREE(d_block_mins);
+  return global_min;
+}
+
+
+template <typename T, std::size_t N>
 __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
                                   const T *sdf_mask, T *block_mins,
                                   std::size_t len) {
@@ -159,7 +188,12 @@ __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
   std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   std::size_t lane = threadIdx.x % EULERCFD::DEVICE_PARAMETERS::WARPSIZE;
   std::size_t warp_id = threadIdx.x / EULERCFD::DEVICE_PARAMETERS::WARPSIZE;
-  
+
+  if (lane == 0) {
+    shared_sum[warp_id] = 0.0;
+  }
+  __syncthreads();
+
   std::size_t i, j, k;
   _1d23dindex_(tid, i, j, k);
   auto id = [](std::size_t i, std::size_t j, std::size_t k) -> std::size_t {
@@ -203,22 +237,7 @@ __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
       EULERCFD::sdf<T>(zfwd, c, radious) - EULERCFD::sdf<T>(zbwd, c, radious)});
   const std::array<T, 3> flow = normalize_array(std::array<T, 3>{1.,0.,0.});
 
-  // At this point we have our normal vector. Yeyyy :)
-
-  /* Here we collect +1,-1 neighbors along the normal direction: point minus(pm) , point_plus(pp)
-    *
-    *        ______________________________________________
-    *       |              |               |               |
-    *       |              |               |               |
-    *       |              |               |               |    Normal
-    *       |     pm       |   (i,j,k)     |      pp       | =============>
-    *       |              |               |               |
-    *       |              |               |               |
-    *       |              |               |               |
-    *       -----------------------------------------------
-    *   
-  */
-  std::array<T, 3> pp; 
+  std::array<T, 3> pp{0,0,0}; 
   bool ok1 = false;
   const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
   std::size_t steps_taken = 0;
@@ -236,17 +255,21 @@ __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
     }
     steps_taken++;
   }
+  if (!ok1){
+    assert(false);
+  }
 
   const auto ijk_pp = EULERCFD::real2sim<T>(pp);
-  T drag_force = primitives[4][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])]+dot(normal,flow)*EULERCFD::CONSTS::DELTA*EULERCFD::CONSTS::DELTA;
+  T drag_force =primitives[4][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])]*dot(normal,flow)*EULERCFD::CONSTS::DELTA*EULERCFD::CONSTS::DELTA;
 
-  const auto object_val = sdf_mask[tid];
-  const auto isOnObject = std::abs(sdf_mask[tid]) < 1.0;
+  const bool isOnObject = std::abs(sdf_mask[tid]) < 1.0;
+
   if (!isOnObject) {
     drag_force = 0.0;
   }
   T sum = warp_reduce_add(drag_force);
 
+  __syncthreads();
   if (lane == 0) {
     shared_sum[warp_id] = sum;
   }
@@ -259,37 +282,10 @@ __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
     sum = warp_reduce_add(sum);
   }
 
+  __syncthreads();
   if (threadIdx.x == 0) {
     block_mins[blockIdx.x] = sum;
   }
-}
-
-template <typename T, std::size_t N>
-T calc_timestep(std::array<T *, N> primitives, const T *sdf_mask,
-                std::size_t len, std::array<std::size_t, 2> lp) {
-  const auto threads_per_block = lp[1];
-  const auto num_blocks = lp[0];
-  assert(num_blocks > 1);
-
-  T *d_block_mins;
-  DEVICE_MATRIX_MALLOC(&d_block_mins, num_blocks * sizeof(T));
-
-  reduce_min_kernel<<<num_blocks, threads_per_block>>>(primitives, sdf_mask,
-                                                       d_block_mins, len);
-
-  std::vector<T> h_block_mins(num_blocks, 0);
-  cudaMemcpy(h_block_mins.data(), d_block_mins, num_blocks * sizeof(T),
-             cudaMemcpyDeviceToHost);
-
-  auto global_min_ptr =
-      std::min_element(h_block_mins.cbegin(), h_block_mins.cend());
-  if (global_min_ptr == h_block_mins.end()) {
-    printf("ERROR: global min is bad");
-    abort();
-  }
-  T global_min = *global_min_ptr;
-  DEVICE_MATRIX_FREE(d_block_mins);
-  return global_min;
 }
 
 template <typename T, std::size_t N>
@@ -310,11 +306,13 @@ T calc_drag_coeff(std::array<T *, N> primitives, const T *sdf_mask,
   cudaMemcpy(h_block.data(), d_block, num_blocks * sizeof(T),
              cudaMemcpyDeviceToHost);
 
-  T drag_force=std::accumulate(h_block.begin(),h_block.end(),T(0.0));
-  T S=4.0*M_PI*EULERCFD::CONSTS::RADIOUS*EULERCFD::CONSTS::RADIOUS;
-  T drag_coeff=2.0*drag_force/(EULERCFD::CONSTS::INFLOW_DENSITY*EULERCFD::CONSTS::INFLOW_VELOCITY_X*EULERCFD::CONSTS::INFLOW_VELOCITY_X*S);
+  T drag_force = std::accumulate(h_block.begin(), h_block.end(), T(0.0));
+  T S = M_PI * EULERCFD::CONSTS::RADIOUS * EULERCFD::CONSTS::RADIOUS;
+  T drag_coeff =
+      2.0 * drag_force /
+      (EULERCFD::CONSTS::INFLOW_DENSITY * EULERCFD::CONSTS::INFLOW_VELOCITY_X *
+       EULERCFD::CONSTS::INFLOW_VELOCITY_X * S);
   DEVICE_MATRIX_FREE(d_block);
-  // return global_min;
   return drag_coeff;
 }
 

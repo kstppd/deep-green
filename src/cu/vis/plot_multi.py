@@ -35,7 +35,6 @@ limits = {
 }        
 
 def read_var(file, var):
-    """Reads HDF5 variable and trims ghost cells."""
     with h5.File(file, 'r') as f:
         data = f[var][:]
     
@@ -52,6 +51,7 @@ def plotFile(input):
         "primitives/vy",
         "primitives/vz",
         "primitives/p",
+        "sdf_object",
     ]
 
     data = [read_var(file, v) for v in vars]

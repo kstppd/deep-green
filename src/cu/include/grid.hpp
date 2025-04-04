@@ -75,6 +75,7 @@ public:
       fmomx_z, fmomy_x, fmomy_y, fmomy_z, fmomz_x, fmomz_y, fmomz_z, fe_x, fe_y,
       fe_z;
   Matrix3d<T, Info, Backend> sdf_object;
+  std::array<T,32> scratch_space;
 
   dev_host constexpr std::size_t size() const noexcept {
     return Info._nx * Info._ny * Info._nz;
