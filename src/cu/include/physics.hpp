@@ -552,6 +552,16 @@ std::array<T, 3> compute_step(
                 lp[1], sw2);
   PROFILE_END();
 
+  PROFILE_START("Calc Drag Coeff");
+  // Calc and Redfuce drag coeff of immersed object
+  spdlog::stopwatch sw21;
+  T drag_coeff = calc_drag_coeff(simgrid.get_primitive_pointers(),
+                       simgrid.sdf_object.data(), simgrid.size(), lp);
+  spdlog::debug("KERNEL::cal_drag_coeff [{0:d} x {1:d}] in {2:f} s.", lp[0],
+                lp[1], sw21);
+  PROFILE_END();
+  spdlog::info("\t Drag Coeff = [{0:f}]",drag_coeff);
+
   PROFILE_START("Calc Gradients");
   // Gradients
   spdlog::stopwatch sw3;

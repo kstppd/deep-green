@@ -19,10 +19,12 @@
 #include "grid.hpp"
 #include "matrix3d.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cuda.h>
 #include <limits>
+#include <numeric>
 #include <type_traits>
 
 template <typename T, T Volume, std::size_t N>
@@ -86,6 +88,14 @@ template <typename T> __inline__ __device__ T warp_reduce_min(T val) {
   return val;
 }
 
+template <typename T> __inline__ __device__ T warp_reduce_add(T val) {
+  for (int offset = EULERCFD::DEVICE_PARAMETERS::WARPSIZE / 2; offset > 0;
+       offset /= 2) {
+    val += __shfl_down_sync(0xffffffff, val, offset);
+  }
+  return val;
+}
+
 template <typename T, std::size_t N>
 __global__ void reduce_min_kernel(std::array<T *, N> primitives,
                                   const T *sdf_mask, T *block_mins,
@@ -130,6 +140,131 @@ __global__ void reduce_min_kernel(std::array<T *, N> primitives,
 }
 
 template <typename T, std::size_t N>
+__host__ __device__ T dot(const std::array<T, N> &a,
+                          const std::array<T, N> &b) {
+  T acc = T{0};
+#pragma unroll
+  for (std::size_t i = 0; i < N; ++i) {
+    acc += a[i] * b[i];
+  }
+  return acc;
+}
+
+
+template <typename T, std::size_t N>
+__global__ void reduce_drag_kernel(std::array<T *, N> primitives,
+                                  const T *sdf_mask, T *block_mins,
+                                  std::size_t len) {
+  __shared__ T shared_sum[EULERCFD::DEVICE_PARAMETERS::WARPSIZE];
+  std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+  std::size_t lane = threadIdx.x % EULERCFD::DEVICE_PARAMETERS::WARPSIZE;
+  std::size_t warp_id = threadIdx.x / EULERCFD::DEVICE_PARAMETERS::WARPSIZE;
+  
+  std::size_t i, j, k;
+  _1d23dindex_(tid, i, j, k);
+  auto id = [](std::size_t i, std::size_t j, std::size_t k) -> std::size_t {
+    return id_f(i, j, k);
+  };
+
+  if ( tid > len) {
+    return;
+  }
+
+  constexpr T radious = EULERCFD::CONSTS::RADIOUS;
+  constexpr T nx = EULERCFD::CONSTS::NX;
+  constexpr T ny = EULERCFD::CONSTS::NY;
+  constexpr T nz = EULERCFD::CONSTS::NZ;
+  constexpr T cx = (nx / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cy = (ny / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr T cz = (nz / 2) * EULERCFD::CONSTS::DELTA;
+  constexpr std::array<T, 3> c{cx, cy, cz};
+
+  const auto r = EULERCFD::sim2real<T>(i, j, k);
+  const auto x = r[0];
+  const auto y = r[1];
+  const auto z = r[2];
+  const auto val = EULERCFD::sdf<T>(x, y, z, cx, cy, cz, radious);
+  const std::array<T, 3> xfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i + 1, j, k));
+  const std::array<T, 3> xbwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i - 1, j, k));
+  const std::array<T, 3> yfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j + 1, k));
+  const std::array<T, 3> ybwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j - 1, k));
+  const std::array<T, 3> zfwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k + 1));
+  const std::array<T, 3> zbwd =
+      EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i, j, k - 1));
+    
+  const std::array<T, 3> normal = normalize_array(std::array<T, 3>{
+      EULERCFD::sdf<T>(xfwd, c, radious) - EULERCFD::sdf<T>(xbwd, c, radious),
+      EULERCFD::sdf<T>(yfwd, c, radious) - EULERCFD::sdf<T>(ybwd, c, radious),
+      EULERCFD::sdf<T>(zfwd, c, radious) - EULERCFD::sdf<T>(zbwd, c, radious)});
+  const std::array<T, 3> flow = normalize_array(std::array<T, 3>{1.,0.,0.});
+
+  // At this point we have our normal vector. Yeyyy :)
+
+  /* Here we collect +1,-1 neighbors along the normal direction: point minus(pm) , point_plus(pp)
+    *
+    *        ______________________________________________
+    *       |              |               |               |
+    *       |              |               |               |
+    *       |              |               |               |    Normal
+    *       |     pm       |   (i,j,k)     |      pp       | =============>
+    *       |              |               |               |
+    *       |              |               |               |
+    *       |              |               |               |
+    *       -----------------------------------------------
+    *   
+  */
+  std::array<T, 3> pp; 
+  bool ok1 = false;
+  const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
+  std::size_t steps_taken = 0;
+  while (steps_taken < 50 /*heuristic*/) {
+    pp = EULERCFD::sim2real<T>(EULERCFD::real2sim(
+        x + steps_taken * step * normal[0], y + steps_taken * step * normal[1],
+        z + steps_taken * step * normal[2]));
+    auto ijk = EULERCFD::real2sim<T>(pp);
+    if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
+      steps_taken++;
+      continue;
+    } else {
+      ok1 = true;
+      break;
+    }
+    steps_taken++;
+  }
+
+  const auto ijk_pp = EULERCFD::real2sim<T>(pp);
+  T drag_force = primitives[4][id(ijk_pp[0], ijk_pp[1], ijk_pp[2])]+dot(normal,flow)*EULERCFD::CONSTS::DELTA*EULERCFD::CONSTS::DELTA;
+
+  const auto object_val = sdf_mask[tid];
+  const auto isOnObject = std::abs(sdf_mask[tid]) < 1.0;
+  if (!isOnObject) {
+    drag_force = 0.0;
+  }
+  T sum = warp_reduce_add(drag_force);
+
+  if (lane == 0) {
+    shared_sum[warp_id] = sum;
+  }
+  __syncthreads();
+
+  if (warp_id == 0) {
+    sum = (lane < blockDim.x / EULERCFD::DEVICE_PARAMETERS::WARPSIZE)
+                  ? shared_sum[lane]
+                  : 0.0;
+    sum = warp_reduce_add(sum);
+  }
+
+  if (threadIdx.x == 0) {
+    block_mins[blockIdx.x] = sum;
+  }
+}
+
+template <typename T, std::size_t N>
 T calc_timestep(std::array<T *, N> primitives, const T *sdf_mask,
                 std::size_t len, std::array<std::size_t, 2> lp) {
   const auto threads_per_block = lp[1];
@@ -155,6 +290,32 @@ T calc_timestep(std::array<T *, N> primitives, const T *sdf_mask,
   T global_min = *global_min_ptr;
   DEVICE_MATRIX_FREE(d_block_mins);
   return global_min;
+}
+
+template <typename T, std::size_t N>
+T calc_drag_coeff(std::array<T *, N> primitives, const T *sdf_mask,
+                  std::size_t len, std::array<std::size_t, 2> lp) {
+  const auto threads_per_block = lp[1];
+  const auto num_blocks = lp[0];
+  assert(num_blocks > 1);
+
+  T *d_block;
+  DEVICE_MATRIX_MALLOC(&d_block, num_blocks * sizeof(T));
+  cudaMemset(d_block,0,num_blocks * sizeof(T));
+
+  reduce_drag_kernel<<<num_blocks, threads_per_block>>>(primitives, sdf_mask,
+                                                       d_block, len);
+
+  std::vector<T> h_block(num_blocks, 0);
+  cudaMemcpy(h_block.data(), d_block, num_blocks * sizeof(T),
+             cudaMemcpyDeviceToHost);
+
+  T drag_force=std::accumulate(h_block.begin(),h_block.end(),T(0.0));
+  T S=4.0*M_PI*EULERCFD::CONSTS::RADIOUS*EULERCFD::CONSTS::RADIOUS;
+  T drag_coeff=2.0*drag_force/(EULERCFD::CONSTS::INFLOW_DENSITY*EULERCFD::CONSTS::INFLOW_VELOCITY_X*EULERCFD::CONSTS::INFLOW_VELOCITY_X*S);
+  DEVICE_MATRIX_FREE(d_block);
+  // return global_min;
+  return drag_coeff;
 }
 
 template <typename T, T DS, std::size_t N, std::size_t N2>
