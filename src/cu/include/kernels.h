@@ -217,7 +217,7 @@ __global__ void reduce_drag_kernel(std::array<T *, N> primitives,
   const auto x = r[0];
   const auto y = r[1];
   const auto z = r[2];
-  const auto val = EULERCFD::sdf<T>(x, y, z, cx, cy, cz, radious);
+  const auto val = EULERCFD::sdf<T>({x, y, z}, {cx, cy, cz}, radious);
   const std::array<T, 3> xfwd =
       EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i + 1, j, k));
   const std::array<T, 3> xbwd =
@@ -413,7 +413,7 @@ __global__ void kernel_apply_sdf_object_bcs(std::array<T *, N> src,
   const auto x = r[0];
   const auto y = r[1];
   const auto z = r[2];
-  const auto val = EULERCFD::sdf<T>(x, y, z, cx, cy, cz, radious);
+  const auto val = EULERCFD::sdf<T>({x, y, z}, {cx, cy, cz}, radious);
   const std::array<T, 3> xfwd =
       EULERCFD::sim2real<T>(EULERCFD::real2sim<T>(i + 1, j, k));
   const std::array<T, 3> xbwd =

@@ -59,9 +59,16 @@ def plotFile(input):
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 8))
     axes = axes.flatten()
+    inside_object = np.where((data[5]) <=1)
+
+    for i in range(len(data) - 1):  # Skip sdf_object itself
+        data[i][inside_object] = np.nan
 
     for i in range(len(vars)):
-        im = axes[i].imshow(data[i][:, ny//2, :].T, cmap='viridis')
+        if (vars[i]=="primitives/p"):
+            im = axes[i].imshow(data[i][:, ny//2, :].T, cmap='viridis',norm=colors.LogNorm())
+        else:
+            im = axes[i].imshow(data[i][:, ny//2, :].T, cmap='viridis')
         axes[i].set_title(vars[i])
         divider = make_axes_locatable(axes[i])
         cax = divider.append_axes("right", size="5%", pad=0.05)

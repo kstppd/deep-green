@@ -25,7 +25,6 @@ namespace EULERCFD {
 template <typename T>
 constexpr dev_host T sdf_ellipsoid(T x, T y, T z, T cx, T cy, T cz, T rx, T ry,
                                    T rz, T radious) {
-
   T dx = x - cx;
   T dy = y - cy;
   T dz = z - cz;

@@ -344,7 +344,7 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
         const auto x = r[0];
         const auto y = r[1];
         const auto z = r[2];
-        const auto val = sdf(x, y, z, cx, cy, cz, radious);
+        const auto val = sdf({x, y, z}, {cx, cy, cz}, radious);
         if (val > 0) {
           sdf_object(i, j, k) = 100.0;
         }
@@ -709,6 +709,7 @@ void compute(Grid<T, G, BACKEND::DEVICE> &&simgrid, T total_time,
     dt = retval[0];
     max_tp = retval[1];
     max_flops = retval[2];
+    printf("Cd=%f",simgrid.scratch_space[0]);
     spdlog::info("Time,  tstep, dt = [{0:f},{1:d},{2:f}] in {3:f}seconds | "
                  "{4:f} TB/s | {5:f} GFLOPS]",
                  time, tstep, dt, sw, max_tp, max_flops);
