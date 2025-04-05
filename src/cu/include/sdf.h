@@ -37,6 +37,24 @@ constexpr dev_host T sdf_ellipsoid(T x, T y, T z, T cx, T cy, T cz, T rx, T ry,
 }
 
 template <typename T>
+constexpr dev_host T sdf_cube(T x, T y, T z, T cx, T cy, T cz) {
+  constexpr T r = T(16);
+
+  T dx = std::abs(x - cx) - r;
+  T dy = std::abs(y - cy) - r;
+  T dz = std::abs(z - cz) - r;
+
+  T max_dx = std::max(dx, T(0));
+  T max_dy = std::max(dy, T(0));
+  T max_dz = std::max(dz, T(0));
+
+  T outside_dist = std::sqrt(max_dx * max_dx + max_dy * max_dy + max_dz * max_dz);
+  T inside_dist = std::min(std::max(std::max(dx, dy), dz), T(0));
+
+  return outside_dist + inside_dist;
+}
+
+template <typename T>
 constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
   return std::sqrt(std::pow((x - cx), T(2)) + std::pow((y - cy), T(2)) +
                    std::pow((z - cz), T(2))) -
@@ -45,6 +63,7 @@ constexpr dev_host T sdf(T x, T y, T z, T cx, T cy, T cz, T radious) {
 
 template <typename T>
 constexpr dev_host T sdf(std::array<T, 3> p, std::array<T, 3> c, T radious) {
-  return sdf(p[0], p[1], p[2], c[0], c[1], c[2], radious);
+  return sdf_cube(p[0], p[1], p[2], c[0], c[1], c[2]);
+  // return sdf(p[0], p[1], p[2], c[0], c[1], c[2], radious);
 }
 } // namespace EULERCFD

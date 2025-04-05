@@ -68,7 +68,7 @@ inline constexpr float INFLOW_VELOCITY_X = 10.0f;
 inline constexpr float INFLOW_VELOCITY_Y = 0.0f;
 inline constexpr float INFLOW_VELOCITY_Z = 0.0f;
 inline constexpr float INFLOW_PRESSURE= 101325.0;
-inline constexpr float INFLOW_DENSITY = 1.0*1.225f;
+inline constexpr float INFLOW_DENSITY = 1.05*1.225f;
 inline constexpr float RADIOUS = 32.0 * EULERCFD::CONSTS::DELTA;
 constexpr SETUP RUN_SETUP=SETUP::TUNNEL;
 inline constexpr std::array<BC, 6> bcs = {BC::INFLOW, BC::OUTFLOW,
@@ -84,13 +84,25 @@ inline constexpr std::size_t WARPSIZE = 32;
 
 } // namespace EULERCFD
 
+//Map i,j,k->index
 __host__ __device__ static inline std::size_t id_f(std::size_t i, std::size_t j,
                                                    std::size_t k) {
   return i * (EULERCFD::CONSTS::NY * EULERCFD::CONSTS::NZ) +
          j * EULERCFD::CONSTS::NZ + k;
 }
 
-inline __device__ void _1d23dindex_(std::size_t tid, std::size_t &i,
+//Map index->i,j,k
+__host__ __device__ static inline void id_f_t(std::size_t index, std::size_t &i,
+                                              std::size_t &j, std::size_t &k) {
+  const std::size_t NY = EULERCFD::CONSTS::NY;
+  const std::size_t NZ = EULERCFD::CONSTS::NZ;
+  i = index / (NY * NZ);
+  std::size_t rem = index % (NY * NZ);
+  j = rem / NZ;
+  k = rem % NZ;
+}
+
+inline __host__ __device__ void _1d23dindex_(std::size_t tid, std::size_t &i,
                                     std::size_t &j, std::size_t &k) noexcept {
   i = tid / (EULERCFD::CONSTS::NY * EULERCFD::CONSTS::NZ);
   j = (tid % (EULERCFD::CONSTS::NY * EULERCFD::CONSTS::NZ)) /

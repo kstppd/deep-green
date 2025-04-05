@@ -23,9 +23,11 @@
 #include <cmath>
 #include <cuda_device_runtime_api.h>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 
 namespace EULERCFD {
 template <typename T>
@@ -351,86 +353,84 @@ void build_sdf(Matrix3d<T, Info, Backend> &sdf_object) {
         if (val < 0) {
           sdf_object(i, j, k) = -100.0;
         }
-        const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
-        const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
-        const std::array<T, 3> yfwd = sim2real<T>(real2sim(i, j + 1, k));
-        const std::array<T, 3> ybwd = sim2real<T>(real2sim(i, j - 1, k));
-        const std::array<T, 3> zfwd = sim2real<T>(real2sim(i, j, k + 1));
-        const std::array<T, 3> zbwd = sim2real<T>(real2sim(i, j, k - 1));
+      }
+    }
+  }
 
-        const std::array<T, 3> normal = normalize_array(
-            std::array<T, 3>{sdf(xfwd, c, radious) - sdf(xbwd, c, radious),
-                             sdf(yfwd, c, radious) - sdf(ybwd, c, radious),
-                             sdf(zfwd, c, radious) - sdf(zbwd, c, radious)});
+  std::unordered_set<std::size_t> surface;
+  for (std::size_t i = 1; i < nx - 1; ++i) {
+    for (std::size_t j = 1; j < ny - 1; ++j) {
+      for (std::size_t k = 1; k < nz - 1; ++k) {
 
-        // Now we step along normal to find the first +- neighbors
-        const T step = 1.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
-        const std::array<T, 3> pp = sim2real<T>(real2sim(
-            x + step * normal[0], y + step * normal[1], z + step * normal[2]));
-        const std::array<T, 3> pm = sim2real<T>(real2sim(
-            x - step * normal[0], y - step * normal[1], z - step * normal[2]));
-        auto ijk = real2sim(pp);
-        if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
-          throw std::runtime_error("Step taken did not take us to a new cell!");
+        if (sdf_object(i,j,k)<=0.0 ){
+          continue;
         }
-        if (std::signbit(sdf(pp, c, radious)) !=
-            std::signbit(sdf(pm, c, radious))) {
-          sdf_object(i, j, k) = 0.0;
+
+        std::size_t ii=i;
+        //X+
+        while (ii < nx - 1) {
+          ii++;
+          if (sdf_object(ii, j, k) <0.0) {
+            surface.insert(id_f(ii,j,k));
+            break;
+          }
+        }
+        
+        ii=i;
+        //X-
+        while (ii >1) {
+          ii--;
+          if (sdf_object(ii, j, k) <0.0) {
+            surface.insert(id_f(ii,j,k));
+            break;
+          }
+        }
+        std::size_t jj=j;
+        //Y+
+        while (jj < ny - 1) {
+          jj++;
+          if (sdf_object(i, jj, k) <0.0) {
+            surface.insert(id_f(i,jj,k));
+            break;
+          }
+        }
+        
+        jj=j;
+        //Y-
+        while (jj >1) {
+          jj--;
+          if (sdf_object(i, jj, k) <0.0) {
+            surface.insert(id_f(i,jj,k));
+            break;
+          }
+        }
+        std::size_t kk = k;
+        // Z+
+        while (kk < nz - 1) {
+          kk++;
+          if (sdf_object(i, j, kk) <0.0) {
+            surface.insert(id_f(i,j,kk));
+            break;
+          }
+        }
+        
+        kk=k;
+        //Z-
+        while (kk >1) {
+          kk--;
+          if (sdf_object(i, j, kk) <0.0) {
+            surface.insert(id_f(i,j,kk));
+            break;
+          }
         }
       }
     }
   }
 
-  // Now we are left with a watertight surfaca but may get multiple positives
-  // along normals. So here
-  //  we clean them up
-  for (std::size_t i = 1; i < nx - 1; ++i) {
-    for (std::size_t j = 1; j < ny - 1; ++j) {
-      for (std::size_t k = 1; k < nz - 1; ++k) {
-        const auto r = sim2real<T>(i, j, k);
-        const auto x = r[0];
-        const auto y = r[1];
-        const auto z = r[2];
-        if (sdf_object(i, j, k) == 0) {
-
-          const std::array<T, 3> xfwd = sim2real<T>(real2sim(i + 1, j, k));
-          const std::array<T, 3> xbwd = sim2real<T>(real2sim(i - 1, j, k));
-          const std::array<T, 3> yfwd = sim2real<T>(real2sim(i, j + 1, k));
-          const std::array<T, 3> ybwd = sim2real<T>(real2sim(i, j - 1, k));
-          const std::array<T, 3> zfwd = sim2real<T>(real2sim(i, j, k + 1));
-          const std::array<T, 3> zbwd = sim2real<T>(real2sim(i, j, k - 1));
-
-          const std::array<T, 3> normal = normalize_array(
-              std::array<T, 3>{sdf(xfwd, c, radious) - sdf(xbwd, c, radious),
-                               sdf(yfwd, c, radious) - sdf(ybwd, c, radious),
-                               sdf(zfwd, c, radious) - sdf(zbwd, c, radious)});
-
-          // Now we step along normal to find the first +- neighbors
-          const T step = 0.5 * (std::sqrt(2) * EULERCFD::CONSTS::DELTA / 2.0);
-          std::size_t steps_taken = 1;
-// clang-format off
-          //FIXME TODO
-          #warning :"FIXME: 50 steps can take you to the opposite boundary surface which breaks this method!"
-          #warning :"FIXME: handle float comparision with 0 using epsilon "
-          // clang-format on
-          while (steps_taken < 50 /*heuristic*/) {
-            const std::array<T, 3> pm =
-                sim2real<T>(real2sim(x - steps_taken * step * normal[0],
-                                     y - steps_taken * step * normal[1],
-                                     z - steps_taken * step * normal[2]));
-            auto ijk = real2sim(pm);
-            if (i == ijk[0] && j == ijk[1] && k == ijk[2]) {
-              steps_taken++;
-              continue;
-            }
-            if (sdf_object(ijk[0], ijk[1], ijk[2]) == 0.0) {
-              sdf_object(ijk[0], ijk[1], ijk[2]) = -100.0;
-            }
-            steps_taken++;
-          }
-        }
-      }
-    }
+  for (auto cand:surface){
+    std::size_t i,j,k;
+    id_f_t(cand,i,j,k);
+    sdf_object(i,j,k)=0.0;
   }
   return;
 }
@@ -454,9 +454,9 @@ void init_tunnel(
   // Set on host
   hostgrid.rho.fill(T(1.0*1.225));
   hostgrid.p.fill(T(101325.0));
-  hostgrid.vx.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_X));
-  hostgrid.vy.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Y));
-  hostgrid.vz.fill(T(EULERCFD::CONSTS::INFLOW_VELOCITY_Z));
+  hostgrid.vx.fill(T(0.0));
+  hostgrid.vy.fill(T(0.0));
+  hostgrid.vz.fill(T(0.0));
   hostgrid.sdf_object.fill(T(100));
   build_sdf(hostgrid.sdf_object);
 
@@ -709,7 +709,7 @@ void compute(Grid<T, G, BACKEND::DEVICE> &&simgrid, T total_time,
     dt = retval[0];
     max_tp = retval[1];
     max_flops = retval[2];
-    printf("Cd=%f",simgrid.scratch_space[0]);
+    printf("Cd=%f\n",simgrid.scratch_space[0]);
     spdlog::info("Time,  tstep, dt = [{0:f},{1:d},{2:f}] in {3:f}seconds | "
                  "{4:f} TB/s | {5:f} GFLOPS]",
                  time, tstep, dt, sw, max_tp, max_flops);
