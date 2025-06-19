@@ -69,10 +69,20 @@ __global__ void kernel_calc_primitives(std::array<T *, N> conserved,
                        (EULERCFD::CONSTS::GAMMA - T(1.0));
 }
 
+template <typename T, typename U>
+__device__ __forceinline__ T shuffle_down(T variable, unsigned int delta, U mask = 0) noexcept {
+#ifdef __NVCC__
+   return __shfl_down_sync(mask, variable, delta);
+#endif
+#ifdef __HIP__
+   return __shfl_down(variable, delta);
+#endif
+}
+
 template <typename T> __inline__ __device__ T warp_reduce_min(T val) {
   for (int offset = EULERCFD::DEVICE_PARAMETERS::WARPSIZE / 2; offset > 0;
        offset /= 2) {
-    val = std::min(val, __shfl_down_sync(0xffffffff, val, offset));
+    val = std::min(val, shuffle_down(val, offset , 0xffffffff));
   }
   return val;
 }
