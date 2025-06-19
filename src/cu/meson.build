@@ -23,6 +23,8 @@ add_project_arguments(
         '-Xcompiler',
         '-Wno-pedantic',
         '--std=c++20',
+        '--ptxas-options=-v',
+        # '-DDRYRUN',
         '-Xcudafe',
         '--diag_suppress=20208',
     ],

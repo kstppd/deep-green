@@ -62,6 +62,10 @@ public:
   constexpr std::array<T *, 5> get_primitive_pointers() noexcept {
     return {rho.data(), vx.data(), vy.data(), vz.data(), p.data()};
   }
+  
+  constexpr std::array<T *__restrict__, 5> get_primitive_pointers_rest() noexcept {
+    return {rho.data(), vx.data(), vy.data(), vz.data(), p.data()};
+  }
 
   constexpr std::array<T *, 5> get_primitive_xtr_pointers() noexcept {
     return {rho_xtr.data(), vx_xtr.data(), vy_xtr.data(), vz_xtr.data(),
@@ -69,6 +73,13 @@ public:
   }
 
   constexpr std::array<T *, 15> get_gradients_pointers() noexcept {
+    return {drho_x.data(), drho_y.data(), drho_z.data(), dvx_x.data(),
+            dvx_y.data(),  dvx_z.data(),  dvy_x.data(),  dvy_y.data(),
+            dvy_z.data(),  dvz_x.data(),  dvz_y.data(),  dvz_z.data(),
+            dp_x.data(),   dp_y.data(),   dp_z.data()};
+  }
+  
+  constexpr std::array<T * __restrict__, 15> get_gradients_pointers_rest() noexcept {
     return {drho_x.data(), drho_y.data(), drho_z.data(), dvx_x.data(),
             dvx_y.data(),  dvx_z.data(),  dvy_x.data(),  dvy_y.data(),
             dvy_z.data(),  dvz_x.data(),  dvz_y.data(),  dvz_z.data(),
@@ -87,6 +98,7 @@ public:
   }
 
   void store(const char *filename) const {
+    #ifndef DRYRUN
     using namespace HighFive;
     File file(filename, File::Truncate);
     std::vector<T> buffer(size(), 0);
@@ -204,6 +216,7 @@ public:
     fe_z.export_to_host(buffer.data());
     dset = file.createDataSet<T>("fluxes/fe_z", DataSpace(get_dims()));
     dset.write_raw(buffer.data());
+    #endif
 
   }
   

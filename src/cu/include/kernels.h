@@ -24,6 +24,7 @@
 #include <cuda.h>
 #include <type_traits>
 
+constexpr int TILE_SIZE = 8;
 
 template <typename T, T Volume, std::size_t N>
 __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
@@ -153,10 +154,66 @@ T calc_timestep(std::array<T *, N> primitives, std::size_t len,
   return global_min;
 }
 
+__device__ inline std::size_t index(std::size_t i, std::size_t j, std::size_t k,
+                                    std::size_t D) noexcept {
+  return i + D * (j + D * k);
+}
+
+template <typename T, T DS>
+__global__ void kernel_calc_gradients_opt(T *__restrict__ src,
+                                          T *__restrict__ gx,
+                                          T *__restrict__ gy,
+                                          T *__restrict__ gz,
+                                          std::size_t len) {
+  constexpr int SX = TILE_SIZE + 2;
+  constexpr int SY = SX;
+  constexpr int SZ = SX;
+  __shared__ T tile[SX * SY * SZ];
+
+  auto sidx = [](int x, int y, int z) { return x + SX * (y + SY * z); };
+  const int tx = threadIdx.x, ty = threadIdx.y, tz = threadIdx.z;
+  const int i = blockIdx.x * TILE_SIZE + tx;
+  const int j = blockIdx.y * TILE_SIZE + ty;
+  const int k = blockIdx.z * TILE_SIZE + tz;
+  const int sx = tx + 1, sy = ty + 1, sz = tz + 1;
+  constexpr int NX = EULERCFD::CONSTS::NX;
+  constexpr int NY = EULERCFD::CONSTS::NY;
+  constexpr int NZ = EULERCFD::CONSTS::NZ;
+  const bool valid = (i < NX && j < NY && k < NZ);
+  const std::size_t gid = id_f(i, j, k);
+  if (valid)
+    tile[sidx(sx, sy, sz)] = src[gid];
+
+  if (tx == 0 && i > 0)
+    tile[sidx(sx - 1, sy, sz)] = src[id_f(i - 1, j, k)];
+  if (tx == TILE_SIZE - 1 && i < NX - 1)
+    tile[sidx(sx + 1, sy, sz)] = src[id_f(i + 1, j, k)];
+  if (ty == 0 && j > 0)
+    tile[sidx(sx, sy - 1, sz)] = src[id_f(i, j - 1, k)];
+  if (ty == TILE_SIZE - 1 && j < NY - 1)
+    tile[sidx(sx, sy + 1, sz)] = src[id_f(i, j + 1, k)];
+  if (tz == 0 && k > 0)
+    tile[sidx(sx, sy, sz - 1)] = src[id_f(i, j, k - 1)];
+  if (tz == TILE_SIZE - 1 && k < NZ - 1)
+    tile[sidx(sx, sy, sz + 1)] = src[id_f(i, j, k + 1)];
+  
+  __syncthreads();
+
+  if (i > 0 && i < NX - 1 && j > 0 && j < NY - 1 && k > 0 && k < NZ - 1) {
+    constexpr T inv2dx = T(1) / (2 * DS);
+    gx[gid] =
+        (tile[sidx(sx + 1, sy, sz)] - tile[sidx(sx - 1, sy, sz)]) * inv2dx;
+    gy[gid] =
+        (tile[sidx(sx, sy + 1, sz)] - tile[sidx(sx, sy - 1, sz)]) * inv2dx;
+    gz[gid] =
+        (tile[sidx(sx, sy, sz + 1)] - tile[sidx(sx, sy, sz - 1)]) * inv2dx;
+  }
+}
+
 template <typename T, T DS, std::size_t N, std::size_t N2>
 __global__ void kernel_calc_gradients(std::array<T *, N> src,
-                                      std::array<T *, N2> gradients,
-                                      std::size_t len) {
+                                       std::array<T *, N2> gradients,
+                                       std::size_t len) {
 
   const std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) {
@@ -177,40 +234,16 @@ __global__ void kernel_calc_gradients(std::array<T *, N> src,
   }
 
   constexpr T iscale = 1.0f / (2.0f * DS);
-  gradients[0][id(i, j, k)] =
-      (src[0][id(i + 1, j, k)] - src[0][id(i - 1, j, k)]) * (iscale);
-  gradients[1][id(i, j, k)] =
-      (src[0][id(i, j + 1, k)] - src[0][id(i, j - 1, k)]) * (iscale);
-  gradients[2][id(i, j, k)] =
-      (src[0][id(i, j, k + 1)] - src[0][id(i, j, k - 1)]) * (iscale);
-
-  gradients[3][id(i, j, k)] =
-      (src[1][id(i + 1, j, k)] - src[1][id(i - 1, j, k)]) * (iscale);
-  gradients[4][id(i, j, k)] =
-      (src[1][id(i, j + 1, k)] - src[1][id(i, j - 1, k)]) * (iscale);
-  gradients[5][id(i, j, k)] =
-      (src[1][id(i, j, k + 1)] - src[1][id(i, j, k - 1)]) * (iscale);
-
-  gradients[6][id(i, j, k)] =
-      (src[2][id(i + 1, j, k)] - src[2][id(i - 1, j, k)]) * (iscale);
-  gradients[7][id(i, j, k)] =
-      (src[2][id(i, j + 1, k)] - src[2][id(i, j - 1, k)]) * (iscale);
-  gradients[8][id(i, j, k)] =
-      (src[2][id(i, j, k + 1)] - src[2][id(i, j, k - 1)]) * (iscale);
-
-  gradients[9][id(i, j, k)] =
-      (src[3][id(i + 1, j, k)] - src[3][id(i - 1, j, k)]) * (iscale);
-  gradients[10][id(i, j, k)] =
-      (src[3][id(i, j + 1, k)] - src[3][id(i, j - 1, k)]) * (iscale);
-  gradients[11][id(i, j, k)] =
-      (src[3][id(i, j, k + 1)] - src[3][id(i, j, k - 1)]) * (iscale);
-
-  gradients[12][id(i, j, k)] =
-      (src[4][id(i + 1, j, k)] - src[4][id(i - 1, j, k)]) * (iscale);
-  gradients[13][id(i, j, k)] =
-      (src[4][id(i, j + 1, k)] - src[4][id(i, j - 1, k)]) * (iscale);
-  gradients[14][id(i, j, k)] =
-      (src[4][id(i, j, k + 1)] - src[4][id(i, j, k - 1)]) * (iscale);
+#pragma unroll
+  for (int c = 0; c < N; ++c) {
+    const int gbase = 3 * c;
+    gradients[gbase][id(i, j, k)] =
+        (src[c][id(i + 1, j, k)] - src[c][id(i - 1, j, k)]) * (iscale);
+    gradients[gbase + 1][id(i, j, k)] =
+        (src[c][id(i, j + 1, k)] - src[c][id(i, j - 1, k)]) * (iscale);
+    gradients[gbase + 2][id(i, j, k)] =
+        (src[c][id(i, j, k + 1)] - src[c][id(i, j, k - 1)]) * (iscale);
+  }
 }
 
 template <typename T, int D, EULERCFD::BC B, int NG, std::size_t N>
@@ -472,7 +505,7 @@ __global__ void kernel_calc_xtr(std::array<T *, N> primitives,
                vx * dp_dx + vy * dp_dy + vz * dp_dz);
 }
 
-template <typename T, T DS>
+template <typename T, T DS ,int DIM>
 __global__ void
 kernel_calc_fluxes(T *mass_flux_x, T *momentum_x_flux_x, T *momentum_y_flux_x,
                    T *momentum_z_flux_x, T *energy_flux_x, T *drho, T *dvx,

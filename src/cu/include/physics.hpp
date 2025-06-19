@@ -397,9 +397,24 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc Gradients");
   // Gradients
   spdlog::stopwatch sw3;
+  #if 0
+  dim3 blockDim(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  dim3 gridDim((EULERCFD::CONSTS::NX + TILE_SIZE - 1) / TILE_SIZE,
+               (EULERCFD::CONSTS::NY + TILE_SIZE - 1) / TILE_SIZE,
+               (EULERCFD::CONSTS::NZ + TILE_SIZE - 1) / TILE_SIZE);
+
+  const auto s=simgrid.get_gradients_pointers_rest();
+  for (int c = 0; c < 5; ++c) {
+    kernel_calc_gradients_opt<T, G.dsx()><<<gridDim, blockDim>>>(
+        simgrid.get_primitive_pointers_rest()[c], s[3*c],s[3*c+1],s[3*c+2],
+        simgrid.size());
+  }
+  #else
   kernel_calc_gradients<T, G.dsx()>
       <<<lp[0], lp[1]>>>(simgrid.get_primitive_pointers(),
                          simgrid.get_gradients_pointers(), simgrid.size());
+
+#endif
   cudaDeviceSynchronize();
   tp = (primitives_size_bytes + gradient_size_bytes) / sw3.elapsed().count() /
        TB;
@@ -431,7 +446,7 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc Fluxes");
   // Fluxes X
   spdlog::stopwatch sw5;
-  kernel_calc_fluxes<T, G.dsx()><<<lp[0], lp[1], 0, streams[0]>>>(
+  kernel_calc_fluxes<T, G.dsx(), 0><<<lp[0], lp[1], 0, streams[0]>>>(
       simgrid.fmass_x.data(), simgrid.fmomx_x.data(), simgrid.fmomy_x.data(),
       simgrid.fmomz_x.data(), simgrid.fe_x.data(), simgrid.drho_x.data(),
       simgrid.dvx_x.data(), simgrid.dvy_x.data(), simgrid.dvz_x.data(),
@@ -439,7 +454,7 @@ std::array<T, 3> compute_step(
       simgrid.vy_xtr.data(), simgrid.vz_xtr.data(), simgrid.p_xtr.data(),
       simgrid.size(), std::array<std::size_t, 3>{1, 0, 0}, 0);
 
-  kernel_calc_fluxes<T, G.dsx()><<<lp[0], lp[1], 0, streams[1]>>>(
+  kernel_calc_fluxes<T, G.dsx(), 1><<<lp[0], lp[1], 0, streams[1]>>>(
       simgrid.fmass_y.data(), simgrid.fmomy_y.data(), simgrid.fmomx_y.data(),
       simgrid.fmomz_y.data(), simgrid.fe_y.data(), simgrid.drho_y.data(),
       simgrid.dvy_y.data(), simgrid.dvx_y.data(), simgrid.dvz_y.data(),
@@ -447,7 +462,7 @@ std::array<T, 3> compute_step(
       simgrid.vx_xtr.data(), simgrid.vz_xtr.data(), simgrid.p_xtr.data(),
       simgrid.size(), std::array<std::size_t, 3>{0, 1, 0}, 1);
 
-  kernel_calc_fluxes<T, G.dsx()><<<lp[0], lp[1], 0, streams[2]>>>(
+  kernel_calc_fluxes<T, G.dsx(), 2><<<lp[0], lp[1], 0, streams[2]>>>(
       simgrid.fmass_z.data(), simgrid.fmomz_z.data(), simgrid.fmomx_z.data(),
       simgrid.fmomy_z.data(), simgrid.fe_z.data(), simgrid.drho_z.data(),
       simgrid.dvz_z.data(), simgrid.dvx_z.data(), simgrid.dvy_z.data(),
