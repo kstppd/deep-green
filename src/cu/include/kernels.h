@@ -24,7 +24,9 @@
 #include <cuda.h>
 #include <type_traits>
 
-constexpr int TILE_SIZE = 8;
+constexpr int TILE_SIZE_X = 8;
+constexpr int TILE_SIZE_Y = 8;
+constexpr int TILE_SIZE_Z = 8;
 
 template <typename T, T Volume, std::size_t N>
 __global__ void kernel_calc_conserved(std::array<T *, N> primitives,
@@ -154,59 +156,62 @@ T calc_timestep(std::array<T *, N> primitives, std::size_t len,
   return global_min;
 }
 
-__device__ inline std::size_t index(std::size_t i, std::size_t j, std::size_t k,
-                                    std::size_t D) noexcept {
-  return i + D * (j + D * k);
-}
-
-template <typename T, T DS>
-__global__ void kernel_calc_gradients_opt(T *__restrict__ src,
-                                          T *__restrict__ gx,
-                                          T *__restrict__ gy,
-                                          T *__restrict__ gz,
+template <typename T, T DS, std::size_t N, std::size_t N2>
+__global__ void kernel_calc_gradients_opt(std::array<T *__restrict__, N> src,
+                                          std::array<T *__restrict__, N2> grads,
                                           std::size_t len) {
-  constexpr int SX = TILE_SIZE + 2;
-  constexpr int SY = SX;
-  constexpr int SZ = SX;
-  __shared__ T tile[SX * SY * SZ];
+  constexpr int SX = TILE_SIZE_X + 2;
+  constexpr int SY = TILE_SIZE_Y + 2;
+  constexpr int SZ = TILE_SIZE_Z + 2;
+  __shared__ T tile[N][SX * SY * SZ];
 
-  auto sidx = [](int x, int y, int z) { return x + SX * (y + SY * z); };
+  auto sidx = [](int x, int y, int z) { return z * SY * SX + y * SX + x; };
   const int tx = threadIdx.x, ty = threadIdx.y, tz = threadIdx.z;
-  const int i = blockIdx.x * TILE_SIZE + tx;
-  const int j = blockIdx.y * TILE_SIZE + ty;
-  const int k = blockIdx.z * TILE_SIZE + tz;
+  const int i = blockIdx.x * TILE_SIZE_X + tx;
+  const int j = blockIdx.y * TILE_SIZE_Y + ty;
+  const int k = blockIdx.z * TILE_SIZE_Z + tz;
   const int sx = tx + 1, sy = ty + 1, sz = tz + 1;
   constexpr int NX = EULERCFD::CONSTS::NX;
   constexpr int NY = EULERCFD::CONSTS::NY;
   constexpr int NZ = EULERCFD::CONSTS::NZ;
   const bool valid = (i < NX && j < NY && k < NZ);
   const std::size_t gid = id_f(i, j, k);
-  if (valid)
-    tile[sidx(sx, sy, sz)] = src[gid];
 
-  if (tx == 0 && i > 0)
-    tile[sidx(sx - 1, sy, sz)] = src[id_f(i - 1, j, k)];
-  if (tx == TILE_SIZE - 1 && i < NX - 1)
-    tile[sidx(sx + 1, sy, sz)] = src[id_f(i + 1, j, k)];
-  if (ty == 0 && j > 0)
-    tile[sidx(sx, sy - 1, sz)] = src[id_f(i, j - 1, k)];
-  if (ty == TILE_SIZE - 1 && j < NY - 1)
-    tile[sidx(sx, sy + 1, sz)] = src[id_f(i, j + 1, k)];
-  if (tz == 0 && k > 0)
-    tile[sidx(sx, sy, sz - 1)] = src[id_f(i, j, k - 1)];
-  if (tz == TILE_SIZE - 1 && k < NZ - 1)
-    tile[sidx(sx, sy, sz + 1)] = src[id_f(i, j, k + 1)];
-  
+#pragma unroll
+  for (int c = 0; c < N; ++c) {
+    if (valid)
+      tile[c][sidx(sx, sy, sz)] = src[c][gid];
+    if (tx == 0 && i > 0)
+      tile[c][sidx(sx - 1, sy, sz)] = src[c][id_f(i - 1, j, k)];
+    if (tx == TILE_SIZE_X - 1 && i < NX - 1)
+      tile[c][sidx(sx + 1, sy, sz)] = src[c][id_f(i + 1, j, k)];
+    if (ty == 0 && j > 0)
+      tile[c][sidx(sx, sy - 1, sz)] = src[c][id_f(i, j - 1, k)];
+    if (ty == TILE_SIZE_Y - 1 && j < NY - 1)
+      tile[c][sidx(sx, sy + 1, sz)] = src[c][id_f(i, j + 1, k)];
+    if (tz == 0 && k > 0)
+      tile[c][sidx(sx, sy, sz - 1)] = src[c][id_f(i, j, k - 1)];
+    if (tz == TILE_SIZE_Z - 1 && k < NZ - 1)
+      tile[c][sidx(sx, sy, sz + 1)] = src[c][id_f(i, j, k + 1)];
+  }
+
   __syncthreads();
 
   if (i > 0 && i < NX - 1 && j > 0 && j < NY - 1 && k > 0 && k < NZ - 1) {
-    constexpr T inv2dx = T(1) / (2 * DS);
-    gx[gid] =
-        (tile[sidx(sx + 1, sy, sz)] - tile[sidx(sx - 1, sy, sz)]) * inv2dx;
-    gy[gid] =
-        (tile[sidx(sx, sy + 1, sz)] - tile[sidx(sx, sy - 1, sz)]) * inv2dx;
-    gz[gid] =
-        (tile[sidx(sx, sy, sz + 1)] - tile[sidx(sx, sy, sz - 1)]) * inv2dx;
+#pragma unroll
+    for (int c = 0; c < N; ++c) {
+      constexpr T inv2dx = T(1) / (2 * DS);
+      const int base_g = 3 * c;
+      grads[base_g + 2][gid] =
+          (tile[c][sidx(sx, sy, sz + 1)] - tile[c][sidx(sx, sy, sz - 1)]) *
+          inv2dx;
+      grads[base_g + 1][gid] =
+          (tile[c][sidx(sx, sy + 1, sz)] - tile[c][sidx(sx, sy - 1, sz)]) *
+          inv2dx;
+      grads[base_g][gid] =
+          (tile[c][sidx(sx + 1, sy, sz)] - tile[c][sidx(sx - 1, sy, sz)]) *
+          inv2dx;
+    }
   }
 }
 

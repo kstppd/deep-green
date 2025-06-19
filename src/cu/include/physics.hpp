@@ -397,18 +397,16 @@ std::array<T, 3> compute_step(
   PROFILE_START("Calc Gradients");
   // Gradients
   spdlog::stopwatch sw3;
-  #if 0
-  dim3 blockDim(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-  dim3 gridDim((EULERCFD::CONSTS::NX + TILE_SIZE - 1) / TILE_SIZE,
-               (EULERCFD::CONSTS::NY + TILE_SIZE - 1) / TILE_SIZE,
-               (EULERCFD::CONSTS::NZ + TILE_SIZE - 1) / TILE_SIZE);
+  #if 1
+  dim3 blockDim(TILE_SIZE_X, TILE_SIZE_Y, TILE_SIZE_Z);
+  dim3 gridDim((EULERCFD::CONSTS::NX + TILE_SIZE_X - 1) / TILE_SIZE_X,
+               (EULERCFD::CONSTS::NY + TILE_SIZE_Y - 1) / TILE_SIZE_Y,
+               (EULERCFD::CONSTS::NZ + TILE_SIZE_Z - 1) / TILE_SIZE_Z);
 
   const auto s=simgrid.get_gradients_pointers_rest();
-  for (int c = 0; c < 5; ++c) {
-    kernel_calc_gradients_opt<T, G.dsx()><<<gridDim, blockDim>>>(
-        simgrid.get_primitive_pointers_rest()[c], s[3*c],s[3*c+1],s[3*c+2],
-        simgrid.size());
-  }
+  kernel_calc_gradients_opt<T, G.dsx()><<<gridDim, blockDim>>>(
+      simgrid.get_primitive_pointers_rest(), simgrid.get_gradients_pointers_rest(),
+      simgrid.size());
   #else
   kernel_calc_gradients<T, G.dsx()>
       <<<lp[0], lp[1]>>>(simgrid.get_primitive_pointers(),

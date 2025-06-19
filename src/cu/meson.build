@@ -25,6 +25,7 @@ add_project_arguments(
         '--std=c++20',
         '--ptxas-options=-v',
         # '-DDRYRUN',
+        '--generate-line-info',
         '-Xcudafe',
         '--diag_suppress=20208',
     ],
